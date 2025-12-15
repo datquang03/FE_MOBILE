@@ -7,12 +7,50 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
+import { login } from "../../features/Authentication/authSlice";
+import FullScreenLoading from "../../components/loadings/fullScreenLoading";
+import ToastNotification from "../../components/toast/ToastNotification";
 
 export default function SignInScreen({ navigation }) {
   const [remember, setRemember] = useState(false);
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [toast, setToast] = useState(null);
+  const dispatch = useDispatch();
+  const loading = useSelector((state) => state.auth.loading);
+
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleLogin = () => {
+    dispatch(
+      login({
+        username: form.username,
+        password: form.password,
+      })
+    ).then((res) => {
+      if (res.meta.requestStatus === "fulfilled") {
+        setToast({
+          type: "success",
+          message: "Đăng nhập thành công",
+        });
+        navigation.replace("MainTabs");
+      } else {
+        const msg =
+          res.payload?.message ||
+          (typeof res.payload === "string" ? res.payload : "") ||
+          "Đăng nhập thất bại";
+        setToast({
+          type: "error",
+          message: msg,
+        });
+      }
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -22,12 +60,19 @@ export default function SignInScreen({ navigation }) {
         <Text style={styles.subtitle}>
           Chào mừng trở lại! Hãy đăng nhập để tiếp tục.
         </Text>
-        <LabelInput placeholder="Hãy điền tên tài khoản..." label="Tên tài khoản" />
+        <LabelInput
+          placeholder="Hãy điền tên tài khoản..."
+          label="Tên tài khoản"
+          value={form.username}
+          onChangeText={(text) => handleChange("username", text)}
+        />
         <LabelInput
           placeholder="Hãy điền mật khẩu..."
           label="Mật khẩu"
           secureTextEntry
           showEye
+          value={form.password}
+          onChangeText={(text) => handleChange("password", text)}
         />
         <View style={styles.rowBetween}>
           <TouchableOpacity
@@ -41,7 +86,10 @@ export default function SignInScreen({ navigation }) {
             <Text style={styles.link}>Quên mật khẩu</Text>
           </TouchableOpacity>
         </View>
-        <PrimaryButton label="Đăng nhập" onPress={() => navigation.replace("MainTabs")} />
+        <PrimaryButton
+          label={loading ? "Đang đăng nhập..." : "Đăng nhập"}
+          onPress={handleLogin}
+        />
         <Text style={styles.switchText}>
           Bạn không có tài khoản?{" "}
           <Text style={styles.link} onPress={() => navigation.navigate("SignUp")}>
@@ -66,6 +114,16 @@ export default function SignInScreen({ navigation }) {
           <Text style={styles.link}>Điều kiện</Text> sử dụng của chúng tôi
         </Text>
       </View>
+      {toast ? (
+        <ToastNotification
+          type={toast.type}
+          message={toast.message}
+          suggestion={toast.suggestion}
+          onClose={() => setToast(null)}
+          duration={3500}
+        />
+      ) : null}
+      <FullScreenLoading loading={loading} text="Đang đăng nhập..." />
     </SafeAreaView>
   );
 }
