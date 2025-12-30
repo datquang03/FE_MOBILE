@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -6,52 +6,164 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
+  FlatList,
+  Dimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useDispatch, useSelector } from "react-redux";
+import { getAllEquipments } from "../../features/Equipment/equipmentSlice";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
 
-export default function BookingFormScreen({ navigation }) {
+const { width } = Dimensions.get("window");
+
+function EquipmentCard({ item, selected, onPress }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        backgroundColor: selected ? '#E3F2FD' : '#fff',
+        borderRadius: 18,
+        padding: 10,
+        marginBottom: 12,
+        marginHorizontal: 4,
+        width: width * 0.42,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
+        alignSelf: 'center',
+        borderWidth: selected ? 2 : 0,
+        borderColor: selected ? '#2196F3' : 'transparent',
+      }}
+    >
+      {/* Tickbox vuông ở góc trên bên phải */}
+      <View style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
+        <View style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          backgroundColor: '#fff',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1.5,
+          borderColor: selected ? '#2196F3' : '#bbb',
+        }}>
+          {selected && (
+            <Feather name="check" size={16} color="#2196F3" style={{ marginTop: -1, marginLeft: 0 }} />
+          )}
+        </View>
+      </View>
+      <Image source={{ uri: item.image }} style={{ width: '100%', height: 90, borderRadius: 10, marginBottom: 8 }} resizeMode="cover" />
+      <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#6C47FF', marginBottom: 2 }}>{item.name}</Text>
+      <Text style={{ color: '#6C47FF', fontWeight: 'bold', marginBottom: 2, fontSize: 13 }}>Giá: {item.pricePerHour.toLocaleString()}đ/giờ</Text>
+      <Text style={{ color: '#888', fontSize: 12 }}>Tổng: {item.totalQty} | Đang dùng: {item.inUseQty} | Còn: <Text style={{ color: item.availableQty > 0 ? '#43A047' : '#E53935', fontWeight: 'bold' }}>{item.availableQty}</Text></Text>
+    </TouchableOpacity>
+  );
+}
+
+export default function BookingFormScreen({ navigation, route }) {
   const [guests, setGuests] = useState(10);
+  const [showMenu, setShowMenu] = useState(false);
+  const [selectedEquipments, setSelectedEquipments] = useState([]);
+
+  // Nhận params từ SelectDateScreen
+  const { startTime, endTime, studioId, bookingMap, range } = route?.params || {};
+
+  // Hiển thị ngày/giờ lấy từ params, fallback rỗng nếu chưa có
+  const checkInDate = startTime ? startTime.slice(0, 10).split('-').reverse().join('/') : '';
+  const checkInTime = startTime ? startTime.slice(11, 16) : '';
+  const checkOutDate = endTime ? endTime.slice(0, 10).split('-').reverse().join('/') : '';
+  const checkOutTime = endTime ? endTime.slice(11, 16) : '';
+
+  // Lấy danh sách thiết bị
+  const dispatch = useDispatch();
+  const { equipments, loading } = useSelector((state) => state.equipment);
+  useEffect(() => {
+    dispatch(getAllEquipments());
+  }, [dispatch]);
+
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Add a top spacer for consistent content padding */}
+      <View style={{ paddingTop: 32 }} />
+      {showMenu && (
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        />
+      )}
       <HeaderBar
         title="Yêu cầu đặt phòng"
-        onBack={() => navigation.goBack?.()}
+        onBack={navigation.goBack}
         rightIcon="more-vertical"
+        onRightPress={() => setShowMenu((v) => !v)}
       />
+      {showMenu && (
+        <View style={styles.dropdownMenu}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setShowMenu(false);
+              /* TODO: handle report */
+            }}
+          >
+            <Feather
+              name="alert-circle"
+              size={20}
+              color="#E53935"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.menuItemText}>
+              <Text style={{ color: "#E53935", fontWeight: "bold" }}>
+                Báo cáo
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: SPACING.xxl }}
+        contentContainerStyle={{ paddingBottom: SPACING.xxl, paddingTop: 12 }}
       >
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Ngày</Text>
-          <View style={styles.rowBetween}>
-            <DateInfo label="Check - In" date="15/09/2025" time="12:00" />
+        {/* Card ngày đặt phòng - phóng to, highlight */}
+        <View style={[styles.card, { borderWidth: 2, borderColor: '#6C47FF', backgroundColor: '#F7F5FF', shadowOpacity: 0.12 }]}> 
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#6C47FF', marginBottom: 12, textAlign: 'center', letterSpacing: 0.5 }}>Thông tin ngày đặt phòng</Text>
+          <View style={[styles.rowBetween, { marginBottom: 8 }]}> 
+            <DateInfo label="Check - In" date={checkInDate} time={checkInTime} />
             <View style={styles.divider} />
-            <DateInfo label="Check - Out" date="16/09/2025" time="04:00" />
-          </View>
-          <View style={styles.spacer} />
-          <View style={styles.rowBetween}>
-            <Text style={styles.sectionLabel}>Khách hàng (Số lượng)</Text>
-            <Counter guests={guests} setGuests={setGuests} />
-          </View>
-          <View style={styles.spacer} />
-          <View style={styles.paymentRow}>
-            <View>
-              <Text style={styles.sectionLabel}>Phương thức thanh toán</Text>
-              <Text style={styles.paymentHint}>Banking ******6587</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => navigation.navigate("PaymentMethod")}
-            >
-              <Text style={styles.editText}>Edit</Text>
-            </TouchableOpacity>
+            <DateInfo label="Check - Out" date={checkOutDate} time={checkOutTime} />
           </View>
         </View>
-
+        {/* Card slider thiết bị */}
+        <View style={[styles.card, { borderWidth: 2, borderColor: '#6C47FF', backgroundColor: '#F7F5FF', shadowOpacity: 0.12, marginBottom: 24 }]}> 
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#6C47FF', marginBottom: 8, marginTop: 8 }}>Thiết bị nổi bật</Text>
+          <FlatList
+            data={equipments && equipments.data && equipments.data.equipment ? equipments.data.equipment : []}
+            keyExtractor={item => item._id}
+            renderItem={({ item }) => (
+              <EquipmentCard
+                item={item}
+                selected={selectedEquipments.includes(item._id)}
+                onPress={() => {
+                  setSelectedEquipments((prev) =>
+                    prev.includes(item._id)
+                      ? prev.filter((id) => id !== item._id)
+                      : [...prev, item._id]
+                  );
+                }}
+              />
+            )}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 4 }}
+            style={{ marginBottom: 0 }}
+          />
+        </View>
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Chi tiết thanh toán</Text>
           <DetailRow label="Thời gian : 16 tiếng" value="4.000.000" />
@@ -88,24 +200,6 @@ const DateInfo = ({ label, date, time }) => (
       <Feather name="calendar" size={16} color={COLORS.textMuted} />
       <Text style={styles.dateText}>{date}</Text>
     </View>
-  </View>
-);
-
-const Counter = ({ guests, setGuests }) => (
-  <View style={styles.counterContainer}>
-    <TouchableOpacity
-      style={styles.circleButton}
-      onPress={() => setGuests((prev) => Math.max(1, prev - 1))}
-    >
-      <Feather name="minus" size={16} color={COLORS.textDark} />
-    </TouchableOpacity>
-    <Text style={styles.counterValue}>{guests}</Text>
-    <TouchableOpacity
-      style={[styles.circleButton, styles.primaryCircle]}
-      onPress={() => setGuests((prev) => prev + 1)}
-    >
-      <Feather name="plus" size={16} color={COLORS.surface} />
-    </TouchableOpacity>
   </View>
 );
 
@@ -178,29 +272,6 @@ const styles = StyleSheet.create({
   spacer: {
     height: SPACING.xl,
   },
-  counterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  circleButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryCircle: {
-    backgroundColor: COLORS.brandBlue,
-    borderColor: COLORS.brandBlue,
-  },
-  counterValue: {
-    marginHorizontal: SPACING.md,
-    fontSize: TYPOGRAPHY.headingS,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
   paymentRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -243,6 +314,40 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: SPACING.lg,
+  },
+  menuOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99,
+  },
+  dropdownMenu: {
+    position: "absolute",
+    top: 56,
+    right: 18,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+    minWidth: 140,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: "#E53935",
+    fontWeight: "bold",
   },
 });
 

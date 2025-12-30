@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -6,21 +6,63 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
-import { login } from "../../features/Authentication/authSlice";
+import { login, loginGoogle } from "../../features/Authentication/authSlice";
 import FullScreenLoading from "../../components/loadings/fullScreenLoading";
 import ToastNotification from "../../components/toast/ToastNotification";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { GOOGLE_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "@env";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen({ navigation }) {
   const [remember, setRemember] = useState(false);
   const [form, setForm] = useState({ username: "", password: "" });
   const [toast, setToast] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const loading = useSelector((state) => state.auth.loading);
+
+  const ANDROID_CLIENT_ID = "911436844422-dbqlfannivjimv5dt98e48hf4jjaq5o4.apps.googleusercontent.com";
+  const WEB_CLIENT_ID = GOOGLE_WEB_CLIENT_ID;
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: ANDROID_CLIENT_ID,
+    expoClientId: WEB_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const googleToken = response.authentication.idToken;
+      dispatch(loginGoogle(googleToken)).then((res) => {
+        if (res.meta.requestStatus === "fulfilled") {
+          setToast({
+            type: "success",
+            message: "Đăng nhập Google thành công",
+          });
+          navigation.replace("MainTabs");
+        } else {
+          const msg =
+            res.payload?.message ||
+            (typeof res.payload === "string" ? res.payload : "") ||
+            "Đăng nhập Google thất bại";
+          setToast({
+            type: "error",
+            message: msg,
+          });
+        }
+      });
+    }
+  }, [response]);
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -52,10 +94,16 @@ export default function SignInScreen({ navigation }) {
     });
   };
 
+  const handleGoogleLogin = async () => {
+    promptAsync();
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <HeaderBar title="" onBack={() => {}} />
-      <View style={styles.container}>
+      <View style={{ paddingTop: 32, backgroundColor: COLORS.surface }}>
+        <HeaderBar title="" onBack={() => navigation.goBack?.() || {}} />
+      </View>
+      <View style={[styles.container, { paddingTop: 16 }]}>
         <Text style={styles.title}>Đăng nhập</Text>
         <Text style={styles.subtitle}>
           Chào mừng trở lại! Hãy đăng nhập để tiếp tục.
@@ -69,10 +117,11 @@ export default function SignInScreen({ navigation }) {
         <LabelInput
           placeholder="Hãy điền mật khẩu..."
           label="Mật khẩu"
-          secureTextEntry
+          secureTextEntry={!showPassword}
           showEye
           value={form.password}
           onChangeText={(text) => handleChange("password", text)}
+          onToggleEye={() => setShowPassword((prev) => !prev)}
         />
         <View style={styles.rowBetween}>
           <TouchableOpacity
@@ -101,12 +150,16 @@ export default function SignInScreen({ navigation }) {
           <Text style={styles.separatorText}>Hoặc đăng kí với</Text>
           <View style={styles.line} />
         </View>
-        <View style={styles.socialRow}>
-          {["G", "", "f"].map((icon) => (
-            <View key={icon} style={styles.socialButton}>
-              <Text style={styles.socialText}>{icon}</Text>
-            </View>
-          ))}
+        <View style={styles.socialRowCentered}>
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
+            <MaterialCommunityIcons
+              name="google"
+              size={22}
+              color="#EA4335"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.googleText}>Đăng nhập với Google</Text>
+          </TouchableOpacity>
         </View>
         <Text style={styles.agreement}>
           Bằng cách đăng ký, bạn đồng ý với các{" "}
@@ -128,12 +181,25 @@ export default function SignInScreen({ navigation }) {
   );
 }
 
-const LabelInput = ({ label, showEye, ...rest }) => (
+const LabelInput = ({ label, showEye, onToggleEye, secureTextEntry, ...rest }) => (
   <View style={{ marginBottom: SPACING.lg }}>
     <Text style={styles.inputLabel}>{label}</Text>
     <View style={styles.inputWrapper}>
-      <TextInput style={styles.input} placeholderTextColor={COLORS.textMuted} {...rest} />
-      {showEye ? <Text style={styles.eye}>👁</Text> : null}
+      <TextInput
+        style={styles.input}
+        placeholderTextColor={COLORS.textMuted}
+        secureTextEntry={secureTextEntry}
+        {...rest}
+      />
+      {showEye ? (
+        <TouchableOpacity onPress={onToggleEye} style={{ paddingHorizontal: SPACING.md }}>
+          <MaterialCommunityIcons
+            name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color={COLORS.textMuted}
+          />
+        </TouchableOpacity>
+      ) : null}
     </View>
   </View>
 );
@@ -176,17 +242,31 @@ const styles = StyleSheet.create({
   separator: { flexDirection: "row", alignItems: "center", marginVertical: SPACING.lg },
   line: { flex: 1, height: 1, backgroundColor: COLORS.border },
   separatorText: { marginHorizontal: SPACING.md, color: COLORS.textMuted },
-  socialRow: { flexDirection: "row", justifyContent: "space-between" },
-  socialButton: {
-    flex: 1,
+  socialRowCentered: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: SPACING.lg,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingVertical: SPACING.md,
-    alignItems: "center",
-    marginHorizontal: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  socialText: { fontSize: 18, color: COLORS.textDark },
+  googleText: {
+    color: COLORS.textDark,
+    fontWeight: "600",
+    fontSize: 16,
+  },
   agreement: { marginTop: SPACING.lg, color: COLORS.textMuted, textAlign: "center" },
 });
 

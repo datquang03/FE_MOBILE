@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   FlatList,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { onboardingSlides } from "../../constants/mockData";
 import { COLORS, SPACING, TYPOGRAPHY } from "../../constants/theme";
@@ -18,9 +19,19 @@ export default function OnboardingScreen({ navigation }) {
   const [index, setIndex] = useState(0);
   const flatListRef = useRef(null);
 
-  const handleNext = () => {
+  // Kiểm tra nếu đã xem onboarding thì chuyển hướng luôn
+  useEffect(() => {
+    AsyncStorage.getItem("hasSeenOnboarding").then((val) => {
+      if (val === "true") {
+        navigation.replace("MainTabs"); // vào thẳng trang chủ
+      }
+    });
+  }, [navigation]);
+
+  const handleNext = async () => {
     if (index === onboardingSlides.length - 1) {
-      navigation.replace("SignIn");
+      await AsyncStorage.setItem("hasSeenOnboarding", "true");
+      navigation.replace("MainTabs"); // vào thẳng trang chủ
     } else {
       flatListRef.current?.scrollToIndex({ index: index + 1 });
     }

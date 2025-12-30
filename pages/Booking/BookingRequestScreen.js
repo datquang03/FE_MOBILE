@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -10,22 +10,37 @@ import {
 import { Feather } from "@expo/vector-icons";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
-import {
-  bookingStatuses,
-  studios,
-} from "../../constants/mockData";
+import { bookingStatuses } from "../../constants/mockData";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
+import { useDispatch, useSelector } from "react-redux";
+import { getStudioById } from "../../features/Studio/studioSlice";
+import FullScreenLoading from "../../components/loadings/fullScreenLoading";
 
-export default function BookingRequestScreen({ navigation }) {
-  const studio = studios[0];
+export default function BookingRequestScreen({ navigation, route }) {
+  const dispatch = useDispatch();
+  // Get studio from navigation params (from StudioDetailScreen)
+  const studioParam = route?.params?.studio;
+  const studioId = studioParam?._id || studioParam?.id || studioParam;
+  const studio = useSelector((state) => state.studio.studioDetail);
+  const loading = useSelector((state) => state.studio.studioDetailLoading);
+  const error = useSelector((state) => state.studio.studioDetailError);
+
+  useEffect(() => {
+    if (studioId) {
+      dispatch(getStudioById(studioId));
+    }
+  }, [studioId, dispatch]);
 
   return (
     <SafeAreaView style={styles.safe}>
-      <HeaderBar
-        title="Yêu cầu đặt phòng"
-        onBack={() => navigation.goBack?.()}
-        rightIcon="more-vertical"
-      />
+      <View style={{ paddingTop: 32, backgroundColor: COLORS.background }}>
+        <HeaderBar
+          title="Yêu cầu đặt phòng"
+          onBack={() => navigation.goBack?.()}
+          rightIcon="more-vertical"
+        />
+      </View>
+      {loading && <FullScreenLoading />}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: SPACING.xxl }}
@@ -41,30 +56,34 @@ export default function BookingRequestScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={styles.card}>
-          <Image source={{ uri: studio.image }} style={styles.cardImage} />
-          <View style={styles.rating}>
-            <Feather name="star" size={14} color={COLORS.brandGold} />
-            <Text style={styles.ratingText}>{studio.rating}</Text>
-          </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>{studio.name}</Text>
-            <Text style={styles.cardMeta}>{studio.size}</Text>
-            <View style={styles.infoRow}>
+        {error ? (
+          <Text style={{ color: 'red', padding: 16 }}>Không thể tải thông tin studio.</Text>
+        ) : studio ? (
+          <View style={styles.card}>
+            <Image source={{ uri: studio.images?.[0] }} style={styles.cardImage} />
+            <View style={styles.rating}>
+              <Feather name="star" size={14} color={COLORS.brandGold} />
+              <Text style={styles.ratingText}>{studio.avgRating?.toFixed(1) || 0}</Text>
+            </View>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>{studio.name}</Text>
+              <Text style={styles.cardMeta}>{studio.area} m² - {studio.capacity} người</Text>
               <View style={styles.infoRow}>
-                <Feather name="clock" size={14} color={COLORS.textMuted} />
-                <Text style={styles.cardMetaSmall}>16 tiếng</Text>
+                <View style={styles.infoRow}>
+                  <Feather name="clock" size={14} color={COLORS.textMuted} />
+                  <Text style={styles.cardMetaSmall}>16 tiếng</Text>
+                </View>
+                <Text style={styles.price}>{studio.basePricePerHour?.toLocaleString()}đ/giờ</Text>
               </View>
-              <Text style={styles.price}>4.000.000</Text>
             </View>
           </View>
-        </View>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
         <PrimaryButton
           label="Tiến hành thanh toán"
-          onPress={() => navigation.navigate("SelectDate")}
+          onPress={() => navigation.navigate("SelectDate", { studio })}
         />
       </View>
     </SafeAreaView>

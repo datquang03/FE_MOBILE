@@ -1,4 +1,7 @@
-import React from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { getCurrentUser } from "../../features/Authentication/authSlice";
+import { getActiveStudio } from "../../features/Studio/studioSlice";
 import {
   SafeAreaView,
   View,
@@ -8,73 +11,182 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  RefreshControl,
+  Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
-import { studios, setDesigns, equipments } from "../../constants/mockData";
+import { setDesigns, equipments } from "../../constants/mockData";
+import { useFocusEffect } from '@react-navigation/native';
+import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 
 export default function HomeScreen({ navigation }) {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const token = useSelector((state) => state.auth.token);
+  const customer = useSelector((state) => state.customer.customer);
+  const studios = useSelector((state) => state.studio.studios);
+  const studioLoading = useSelector((state) => state.studio.loading);
+  const studioError = useSelector((state) => state.studio.error);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const isLoggedIn = !!user && !!token;
+
+  // Always sync user info with customer profile if available
+  useEffect(() => {
+    if (customer) {
+      dispatch({ type: 'auth/getCurrentUser/fulfilled', payload: customer });
+    }
+  }, [customer, dispatch]);
+
+  useEffect(() => {
+    if (token && !user) {
+      dispatch(getCurrentUser());
+    }
+  }, [token, user, dispatch]);
+
+  useEffect(() => {
+    dispatch(getActiveStudio());
+  }, [dispatch]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (token) {
+        dispatch(getCurrentUser());
+      }
+    }, [token, dispatch])
+  );
+
+  const handleProfilePress = () => {
+    if (isLoggedIn) {
+      navigation.navigate("Profile");
+    } else {
+      navigation.navigate("SignIn");
+    }
+  };
+
+  // Pull to refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await dispatch(getCurrentUser());
+    setRefreshing(false);
+  }, [dispatch]);
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: 32, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.header}>
-          <View style={styles.avatar} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>Dat Quang</Text>
-            <Text style={styles.location}>TPHCM, Binh Tan</Text>
-          </View>
-          <TouchableOpacity style={styles.iconButton}>
-            <Feather name="search" size={18} color={COLORS.textDark} />
+          <TouchableOpacity style={styles.avatar} onPress={handleProfilePress}>
+            {user?.avatar && typeof user.avatar === 'string' ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarIconWrapper}>
+                <Feather name="user" size={32} color={COLORS.textDark} />
+              </View>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Feather name="bell" size={18} color={COLORS.textDark} />
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity onPress={handleProfilePress}>
+              <Text style={styles.name}>
+                {isLoggedIn
+                  ? user?.fullName || user?.username || "Khách hàng"
+                  : "Khách hàng"}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.location}>
+              {isLoggedIn
+                ? (user?.role === "customer"
+                    ? "Khách hàng"
+                    : user?.role === "staff"
+                    ? "Nhân viên"
+                    : user?.role || "Chưa xác định")
+                : "Ấn vào để đăng nhập"}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Search')}>
+              <Feather name="search" size={20} color={COLORS.textDark} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
+              <Feather name="bell" size={20} color={COLORS.textDark} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={{ paddingHorizontal: 20 }}>
+          <TouchableOpacity style={styles.locationCard}>
+            <Feather name="map-pin" size={18} color={COLORS.brandBlue} />
+            <Text style={styles.locationText}>Bạn có thể thay đổi vị trí của mình</Text>
+            <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.locationCard}>
-          <Feather name="map-pin" size={18} color={COLORS.brandBlue} />
-          <Text style={styles.locationText}>Bạn có thể thay đổi vị trí của mình</Text>
-          <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
-        </TouchableOpacity>
 
         <SectionHeader
           title="Phòng phổ biến"
           actionLabel="Xem tất cả"
           onPress={() => navigation.navigate("Search")}
         />
-        <FlatList
-          data={studios}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.horizontalCard}
-              onPress={() => navigation.navigate("Detail", { item })}
-            >
-              <Image source={{ uri: item.image }} style={styles.horizontalImage} />
-              <View style={styles.horizontalContent}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardMeta}>{item.size}</Text>
-                <Text style={styles.cardPrice}>{item.price}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+        {studioLoading ? (
+          <StudioSkeleton />
+        ) : studioError ? (
+          <View style={{ height: 160, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: 'red' }}>Lỗi tải phòng!</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={studios}
+            keyExtractor={(item) => item._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.horizontalCard}
+                onPress={() => navigation.navigate("Detail", { item })}
+              >
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    source={{ uri: item.images?.[0] || undefined }}
+                    style={styles.horizontalImage}
+                    resizeMode="cover"
+                  />
+                  {/* Badge rating: always show, use avgRating and reviewCount */}
+                  <View style={styles.badgeRating}>
+                    <Feather name="star" size={16} color={COLORS.brandGold} />
+                    <Text style={styles.badgeRatingText}>{item.avgRating?.toFixed(1) || '0.0'}</Text>
+                    <Text style={{ color: COLORS.textMuted, marginLeft: 4, fontSize: 13 }}>({item.reviewCount})</Text>
+                  </View>
+                </View>
+                <View style={styles.horizontalContent}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardMeta}>{item.location}</Text>
+                  <Text style={styles.cardMeta}>{item.description?.slice(0, 40) + (item.description?.length > 40 ? '...' : '')}</Text>
+                  <Text style={styles.cardMeta}>Sức chứa: {item.capacity}</Text>
+                  <Text style={styles.cardPriceHighlight}>{item.basePricePerHour.toLocaleString()}đ/giờ</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
 
         <SectionHeader
           title="Set Design theo yêu cầu"
           actionLabel="Xem thêm"
           onPress={() => navigation.navigate("SetDesignList")}
         />
-        <ScrollView
+        <FlatList
+          data={setDesigns}
+          keyExtractor={(item) => item.id}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
-        >
-          {setDesigns.map((item) => (
+          renderItem={({ item }) => (
             <TouchableOpacity
-              key={item.id}
               style={styles.designCard}
               onPress={() => navigation.navigate("SetDesignDetail", { item })}
             >
@@ -84,14 +196,14 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.cardPrice}>{item.price}</Text>
               </View>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        />
 
         <SectionHeader
           title="Chúng tôi đang ở đây"
           actionLabel="Mở bản đồ"
         />
-        <View style={styles.mapCard}>
+        <View style={[styles.mapCard, { marginBottom: 24, marginTop: 8 }]}>
           <Text style={styles.mapTitle}>S Cộng Studio</Text>
           <Text style={styles.mapSubtitle}>Ngô Văn Sở, Phim trường S cộng</Text>
         </View>
@@ -100,13 +212,14 @@ export default function HomeScreen({ navigation }) {
           title="Dụng Cụ"
           actionLabel="Xem thêm"
         />
-        <ScrollView
+        <FlatList
+          data={equipments}
+          keyExtractor={(item) => item.id}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
-        >
-          {equipments.map((item) => (
-            <View key={item.id} style={styles.equipmentCard}>
+          renderItem={({ item }) => (
+            <View style={styles.equipmentCard}>
               <Image source={{ uri: item.image }} style={styles.equipmentImage} />
               <View style={{ flex: 1, marginLeft: SPACING.md }}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
@@ -114,8 +227,8 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.oldPrice}>{item.oldPrice}</Text>
               </View>
             </View>
-          ))}
-        </ScrollView>
+          )}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -132,6 +245,51 @@ const SectionHeader = ({ title, actionLabel, onPress }) => (
   </View>
 );
 
+// Custom Expo-compatible skeleton loader for studios
+const StudioSkeleton = () => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [shimmerAnim]);
+
+  const shimmerStyle = {
+    opacity: shimmerAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.5, 1],
+    }),
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', paddingHorizontal: SPACING.lg }}>
+      {[1,2,3].map((_, idx) => (
+        <View key={idx} style={{ width: 220, marginRight: SPACING.md, borderRadius: RADIUS.xl, overflow: 'hidden', backgroundColor: COLORS.surface }}>
+          <Animated.View style={[{ width: '100%', height: 140, borderRadius: RADIUS.xl, backgroundColor: COLORS.background }, shimmerStyle]} />
+          <View style={{ padding: SPACING.md }}>
+            <Animated.View style={[{ width: 120, height: 18, borderRadius: 8, marginBottom: 8, backgroundColor: COLORS.background }, shimmerStyle]} />
+            <Animated.View style={[{ width: 80, height: 14, borderRadius: 8, marginBottom: 6, backgroundColor: COLORS.background }, shimmerStyle]} />
+            <Animated.View style={[{ width: 60, height: 14, borderRadius: 8, marginBottom: 6, backgroundColor: COLORS.background }, shimmerStyle]} />
+            <Animated.View style={[{ width: 80, height: 20, borderRadius: 8, backgroundColor: COLORS.background }, shimmerStyle]} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -146,8 +304,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.brandBlue,
+    backgroundColor: COLORS.textLight,
     marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  avatarIconWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   name: {
     fontSize: TYPOGRAPHY.headingS,
@@ -269,6 +433,36 @@ const styles = StyleSheet.create({
   oldPrice: {
     textDecorationLine: "line-through",
     color: COLORS.danger,
+  },
+  badgeRating: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    shadowColor: COLORS.brandGold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  badgeRatingText: {
+    color: COLORS.brandGold,
+    fontWeight: 'bold',
+    marginLeft: 4,
+    fontSize: 15,
+  },
+  cardPriceHighlight: {
+    color: COLORS.brandBlue,
+    fontWeight: 'bold',
+    fontSize: 22,
+    marginTop: 4,
+    marginBottom: 2,
+    letterSpacing: 1,
   },
 });
 

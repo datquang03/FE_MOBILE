@@ -1,247 +1,886 @@
-import React from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   SafeAreaView,
   View,
   Text,
   StyleSheet,
-  Pressable,
   ScrollView,
+  Pressable,
+  Animated,
+  Modal,
+  TouchableOpacity,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
-import { bookingStatuses } from "../../constants/mockData";
+import { COLORS, SPACING } from "../../constants/theme";
+import { getStudioSchedule } from "../../features/Studio/studioSlice";
+import moment from "moment";
+import "moment/locale/vi";
+import { PanResponder } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-const WEEKS = [
-  [0, 0, 0, 0, 0, 0, 1],
-  [2, 3, 4, 5, 6, 7, 8],
-  [9, 10, 11, 12, 13, 14, 15],
-  [16, 17, 18, 19, 20, 21, 22],
-  [23, 24, 25, 26, 27, 28, 29],
-  [30, 0, 0, 0, 0, 0, 0],
-];
+moment.locale("vi");
 
-const STATUS_BY_DATE = {
-  8: "done",
-  9: "done",
-  10: "done",
-  11: "done",
-  12: "done",
-  15: "booking",
-  16: "booking",
-  21: "approved",
-  22: "approved",
-  23: "approved",
-  28: "pending",
-  29: "pending",
-  30: "pending",
+/* ================== HELPERS ================== */
+const getDatesInRange = (start, end) => {
+  const dates = [];
+  let current = new Date(start);
+  while (current <= end) {
+    dates.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
 };
 
-const COLOR_BY_STATUS = bookingStatuses.reduce((acc, status) => {
-  acc[status.id] = status.color;
-  return acc;
-}, {});
+/* ================== SKELETON ================== */
+const SkeletonBlock = ({ width, height, radius = 10 }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
 
-export default function SelectDateScreen({ navigation }) {
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <HeaderBar
-        title="Yêu cầu đặt phòng"
-        onBack={() => navigation.goBack?.()}
-        rightIcon="more-vertical"
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.legend}>
-          {bookingStatuses.map((status) => (
-            <View key={status.id} style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: status.color }]}
-              />
-              <Text style={styles.legendLabel}>{status.label}</Text>
-            </View>
+    <Animated.View
+      style={{
+        width,
+        height,
+        borderRadius: radius,
+        backgroundColor: "#E0E0E0",
+        opacity,
+      }}
+    />
+  );
+};
+
+const ScheduleSkeleton = () => (
+  <View>
+    {[1, 2, 3].map((i) => (
+      <View key={i} style={{ marginBottom: 24 }}>
+        <SkeletonBlock width={160} height={16} />
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+          {[1, 2, 3].map((j) => (
+            <SkeletonBlock key={j} width={90} height={40} />
           ))}
         </View>
+      </View>
+    ))}
+  </View>
+);
 
-        <View style={styles.calendarCard}>
-          <Text style={styles.calendarTitle}>Chọn ngày</Text>
-          <Text style={styles.calendarMonth}>Tháng 9 | 2025</Text>
-          <View style={styles.weekHeader}>
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <Text key={day} style={styles.weekLabel}>
-                {day}
-              </Text>
-            ))}
-          </View>
-          {WEEKS.map((week, idx) => (
-            <View key={idx} style={styles.weekRow}>
-              {week.map((day, index) => {
-                if (day === 0) {
-                  return <View key={index} style={styles.dayCell} />;
-                }
-                const status = STATUS_BY_DATE[day];
-                const isSelected = day === 16;
+/* ================== TABLE ================== */
+const ScheduleTable = ({ dates, scheduleByDate, value, onChange }) => (
+  <View>
+    {dates.map((date) => {
+      const key = moment(date).format("YYYY-MM-DD");
+      const slots = scheduleByDate?.[key] || [];
+
+      return (
+        <View key={key} style={{ marginBottom: 20 }}>
+          <Text style={styles.dateLabel}>
+            {moment(date).format("dddd, DD/MM")}
+          </Text>
+
+          {slots.length === 0 ? (
+            <Text style={styles.noSlot}>Không có khung giờ</Text>
+          ) : (
+            <View style={styles.slotRow}>
+              {slots.map((slot) => {
+                const selected = value?.[key]?.slotId === slot._id;
                 return (
                   <Pressable
-                    key={index}
+                    key={slot._id}
+                    disabled={slot.status === "booked"}
                     style={[
-                      styles.dayCell,
-                      status && {
-                        backgroundColor:
-                          COLOR_BY_STATUS[status] + "22" || COLORS.surface,
-                      },
+                      styles.slot,
+                      selected && styles.slotActive,
+                      slot.status === "booked" && styles.slotDisabled,
                     ]}
+                    onPress={() =>
+                      onChange(key, {
+                        slotId: slot._id,
+                        checkIn: slot.start,
+                        checkOut: slot.end,
+                      })
+                    }
                   >
-                    <View
+                    <Text
                       style={[
-                        styles.dayCircle,
-                        isSelected && {
-                          borderWidth: 2,
-                          borderColor: COLORS.brandBlue,
-                        },
-                        status && { backgroundColor: COLORS.surface },
+                        styles.slotText,
+                        selected && { color: "#fff" },
+                        slot.status === "booked" && styles.slotTextDisabled,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.dayText,
-                          status && { color: COLOR_BY_STATUS[status] },
-                          isSelected && { color: COLORS.brandBlue },
-                        ]}
-                      >
-                        {day}
-                      </Text>
-                    </View>
+                      {slot.timeRange}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
-          ))}
-          <View style={styles.calendarActions}>
-            <Pressable style={styles.secondary}>
-              <Text style={styles.secondaryText}>Huỷ</Text>
-            </Pressable>
-            <PrimaryButton
-              style={styles.primary}
-              label="Xác nhận"
-              onPress={() => navigation.navigate("BookingForm")}
-            />
+          )}
+        </View>
+      );
+    })}
+  </View>
+);
+
+/* ================== CUSTOM SCHEDULE TABLE ================== */
+const CustomScheduleTable = ({ pickMode, singleDate, rangeStart, rangeEnd, onSelectDate }) => {
+  const today = new Date();
+  const [monthOffset, setMonthOffset] = useState(0); // cho phép xem các tháng tiếp theo
+  const months = [];
+  for (let i = 0; i < 2; i++) {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() + monthOffset + i, 1);
+    months.push(monthDate);
+  }
+  const isInRange = (date) => {
+    if (pickMode === 'single') return moment(date).isSame(singleDate, 'day');
+    if (!rangeStart || !rangeEnd) return false;
+    return moment(date).isBetween(rangeStart, rangeEnd, 'day', '[]');
+  };
+  const isStart = (date) => pickMode === 'range' && rangeStart && moment(date).isSame(rangeStart, 'day');
+  const isEnd = (date) => pickMode === 'range' && rangeEnd && moment(date).isSame(rangeEnd, 'day');
+  const isPast = (date) => moment(date).isBefore(today, 'day');
+
+  const handleRangeSelect = (date) => {
+    if (!rangeStart || !rangeEnd) {
+      // Lần đầu: chọn ngày, luôn bôi ngày đó và ngày tiếp theo
+      const nextDay = moment(date).clone().add(1, 'day').toDate();
+      onSelectDate({ start: date, end: nextDay });
+    } else if (moment(date).isSame(rangeStart, 'day') || moment(date).isSame(rangeEnd, 'day')) {
+      // Nếu bấm lại vào đầu/cuối range: reset về ngày đó + ngày tiếp theo
+      const nextDay = moment(date).clone().add(1, 'day').toDate();
+      onSelectDate({ start: date, end: nextDay });
+    } else if (moment(date).isBefore(rangeStart, 'day')) {
+      // Kéo dài về trước
+      onSelectDate({ start: date, end: rangeEnd });
+    } else if (moment(date).isAfter(rangeEnd, 'day')) {
+      // Kéo dài về sau
+      onSelectDate({ start: rangeStart, end: date });
+    } else {
+      // Nếu bấm vào trong range thì reset về ngày đó + ngày tiếp theo
+      const nextDay = moment(date).clone().add(1, 'day').toDate();
+      onSelectDate({ start: date, end: nextDay });
+    }
+  };
+
+  return (
+    <View style={{ gap: 18 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <Pressable
+          style={{ padding: 8, opacity: monthOffset === 0 ? 0.3 : 1 }}
+          disabled={monthOffset === 0}
+          onPress={() => setMonthOffset(monthOffset - 1)}
+        >
+          <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 18 }}>{'<'}</Text>
+        </Pressable>
+        <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#6C47FF' }}>Tháng {months[0].getMonth() + 1} - {months[0].getFullYear()}</Text>
+        <Pressable
+          style={{ padding: 8 }}
+          onPress={() => setMonthOffset(monthOffset + 1)}
+        >
+          <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 18 }}>{'>'}</Text>
+        </Pressable>
+      </View>
+      {months.map((monthDate, idx) => {
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+        const daysInMonth = moment(monthDate).daysInMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const days = [];
+        for (let i = 0; i < firstDay; i++) days.push(null);
+        for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
+        return (
+          <View key={idx} style={{ marginBottom: 8 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#6C47FF', marginBottom: 6 }}>
+              {moment(monthDate).format('MMMM YYYY')}
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+              {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d) => (
+                <Text key={d} style={{ width: 32, textAlign: 'center', color: '#888', fontWeight: '600' }}>{d}</Text>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {days.map((date, i) => {
+                if (!date) return <View key={i} style={{ width: 32, height: 32, margin: 2 }} />;
+                const selected = isInRange(date);
+                const start = isStart(date);
+                const end = isEnd(date);
+                const disabled = isPast(date);
+                return (
+                  <Pressable
+                    key={i}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      margin: 2,
+                      borderRadius: start || end ? 16 : 8,
+                      backgroundColor: selected ? (start || end ? '#6C47FF' : '#E5E1F9') : '#fff',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: selected ? 0 : 1,
+                      borderColor: '#E5E1F9',
+                      opacity: disabled ? 0.3 : 1,
+                    }}
+                    disabled={disabled}
+                    onPress={() => {
+                      if (pickMode === 'single') {
+                        onSelectDate(date);
+                      } else {
+                        handleRangeSelect(date);
+                      }
+                    }}
+                  >
+                    <Text style={{ color: start || end ? '#fff' : selected ? '#6C47FF' : '#222', fontWeight: 'bold', textDecorationLine: disabled ? 'line-through' : 'none' }}>{date.getDate()}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+/* ================== TIME PICKER MODAL ================== */
+function ClockFace({ hour, setHour, ampm, setAmpm }) {
+  // 12 giờ trên mặt đồng hồ
+  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  // Tính vị trí các số trên mặt đồng hồ
+  const getPos = (i, r = 90) => {
+    const angle = ((i - 3) / 12) * 2 * Math.PI;
+    return {
+      left: 120 + r * Math.cos(angle) - 20,
+      top: 120 + r * Math.sin(angle) - 20,
+    };
+  };
+  return (
+    <View style={{ width: 240, height: 240, alignSelf: 'center', marginVertical: 8 }}>
+      {/* Kim giờ */}
+      <View style={{ position: 'absolute', left: 120, top: 120, width: 0, height: 0 }}>
+        <View style={{
+          position: 'absolute',
+          width: 4,
+          height: 80,
+          backgroundColor: '#6C47FF',
+          borderRadius: 2,
+          top: 0,
+          left: -2,
+          transform: [{ rotate: `${((hour % 12) / 12) * 360}deg` }],
+        }} />
+        <View style={{
+          position: 'absolute',
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: '#6C47FF',
+          top: -80,
+          left: -20,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{(hour % 12) === 0 ? 12 : hour % 12}</Text>
+        </View>
+      </View>
+      {/* Các số giờ */}
+      {hours.map((h, i) => (
+        <TouchableOpacity
+          key={h}
+          style={{ position: 'absolute', ...getPos(i), width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: (hour % 12 === h % 12) ? '#E5E1F9' : 'transparent' }}
+          onPress={() => setHour(ampm === 'PM' ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h))}
+        >
+          <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 18 }}>{h}</Text>
+        </TouchableOpacity>
+      ))}
+      {/* Vòng ngoài */}
+      <View style={{ position: 'absolute', left: 20, top: 20, width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: '#E5E1F9' }} />
+    </View>
+  );
+}
+
+function TimePickerModal({ visible, initialTime, onClose, onConfirm }) {
+  const [hour, setHour] = useState(initialTime.getHours());
+  const [minute, setMinute] = useState(initialTime.getMinutes());
+  const [ampm, setAmpm] = useState(hour >= 12 ? 'PM' : 'AM');
+  const [selecting, setSelecting] = useState('hour'); // 'hour' or 'minute'
+
+  useEffect(() => {
+    setHour(initialTime.getHours());
+    setMinute(initialTime.getMinutes());
+    setAmpm(initialTime.getHours() >= 12 ? 'PM' : 'AM');
+    setSelecting('hour');
+  }, [initialTime, visible]);
+
+  const handleOk = () => {
+    let h = hour;
+    if (ampm === 'AM' && h === 12) h = 0;
+    if (ampm === 'PM' && h < 12) h += 12;
+    const newTime = new Date(initialTime);
+    newTime.setHours(h);
+    newTime.setMinutes(minute);
+    onConfirm(newTime);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ backgroundColor: '#F7F5FF', borderRadius: 18, padding: 24, width: 340, alignItems: 'center', elevation: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <TouchableOpacity onPress={() => setSelecting('hour')} style={{ borderWidth: 2, borderColor: selecting === 'hour' ? '#6C47FF' : 'transparent', borderRadius: 8, padding: 4, minWidth: 56, alignItems: 'center', backgroundColor: '#fff' }}>
+              <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold' }}>{(hour % 12) === 0 ? 12 : hour % 12}</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold', marginHorizontal: 4 }}>:</Text>
+            <TouchableOpacity onPress={() => setSelecting('minute')} style={{ borderWidth: 2, borderColor: selecting === 'minute' ? '#6C47FF' : 'transparent', borderRadius: 8, padding: 4, minWidth: 56, alignItems: 'center', backgroundColor: '#fff' }}>
+              <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold' }}>{minute.toString().padStart(2, '0')}</Text>
+            </TouchableOpacity>
+            <View style={{ marginLeft: 12 }}>
+              <TouchableOpacity onPress={() => setAmpm('AM')} style={{ backgroundColor: ampm === 'AM' ? '#E5E1F9' : '#fff', borderRadius: 6, padding: 4, marginBottom: 2 }}>
+                <Text style={{ color: '#6C47FF', fontWeight: 'bold' }}>AM</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setAmpm('PM')} style={{ backgroundColor: ampm === 'PM' ? '#E5E1F9' : '#fff', borderRadius: 6, padding: 4 }}>
+                <Text style={{ color: '#6C47FF', fontWeight: 'bold' }}>PM</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {selecting === 'hour' ? (
+            <ClockFace hour={hour} setHour={setHour} ampm={ampm} setAmpm={setAmpm} />
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 240, alignSelf: 'center', marginVertical: 16, justifyContent: 'center' }}>
+              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                <TouchableOpacity key={m} onPress={() => setMinute(m)} style={{ width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', margin: 4, backgroundColor: minute === m ? '#E5E1F9' : 'transparent' }}>
+                  <Text style={{ fontSize: 20, color: '#6C47FF', fontWeight: 'bold' }}>{m.toString().padStart(2, '0')}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%', marginTop: 8 }}>
+            <TouchableOpacity onPress={onClose} style={{ marginRight: 24 }}>
+              <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleOk}>
+              <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 16 }}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
+      </View>
+    </Modal>
+  );
+}
+
+/* ================== SCREEN ================== */
+export default function SelectDateScreen({ navigation, route }) {
+  const dispatch = useDispatch();
+  const studioId = route?.params?.studio?._id;
+
+  const { studioSchedule, studioScheduleLoading } = useSelector(
+    (state) => state.studio
+  );
+
+  const [pickMode, setPickMode] = useState('single'); // 'single' hoặc 'range'
+  const [singleDate, setSingleDate] = useState(new Date());
+  const [rangeStart, setRangeStart] = useState(new Date());
+  const [rangeEnd, setRangeEnd] = useState(moment().add(1, 'day').toDate());
+  const [checkinTime, setCheckinTime] = useState(moment().startOf('hour').toDate());
+  const [checkoutTime, setCheckoutTime] = useState(moment().startOf('hour').add(4, 'hours').toDate());
+  const [bookingMap, setBookingMap] = useState({});
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [timeModalType, setTimeModalType] = useState('checkin'); // 'checkin' or 'checkout'
+  const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    dispatch(getStudioSchedule());
+  }, []);
+
+  const studio = useMemo(
+    () => studioSchedule?.studios?.find((s) => s._id === studioId),
+    [studioSchedule, studioId]
+  );
+
+  const dates = useMemo(
+    () => getDatesInRange(rangeStart, rangeEnd),
+    [rangeStart, rangeEnd]
+  );
+
+  const disabled = dates.some((d) => {
+    const key = moment(d).format("YYYY-MM-DD");
+    const slots = studio?.scheduleByDate?.[key] || [];
+    return slots.length > 0 && !bookingMap[key];
+  });
+
+  return (
+    <SafeAreaView style={[styles.safe, { paddingTop: 32 }]}>
+      {showMenu && (
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMenu(false)} />
+      )}
+      <HeaderBar
+        title="Chọn lịch đặt phòng"
+        onBack={navigation.goBack}
+        rightIcon="more-vertical"
+        onRightPress={() => setShowMenu((v) => !v)}
+      />
+      {showMenu && (
+        <View style={styles.dropdownMenu}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); /* TODO: handle report */ }}>
+            <Feather name="alert-circle" size={20} color="#E53935" style={{ marginRight: 8 }} />
+            <Text style={styles.menuItemText}> <Text style={{ color: '#E53935', fontWeight: 'bold' }}>Báo cáo</Text></Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 12 }]}>
+        <View style={styles.calendarCard}>
+          <View style={styles.modeRow}>
+            <Pressable
+              style={[styles.modeButton, pickMode === 'single' && styles.modeButtonActive]}
+              onPress={() => setPickMode('single')}
+            >
+              <Text style={[styles.modeButtonText, pickMode === 'single' && styles.modeButtonTextActive]}>Chọn 1 ngày</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.modeButton, pickMode === 'range' && styles.modeButtonActive]}
+              onPress={() => {
+                if (pickMode === 'single') {
+                  // Khi chuyển từ single sang range, lấy ngày đang chọn và cộng thêm 1 ngày
+                  setRangeStart(singleDate);
+                  setRangeEnd(moment(singleDate).add(1, 'day').toDate());
+                }
+                setPickMode('range');
+              }}
+            >
+              <Text style={[styles.modeButtonText, pickMode === 'range' && styles.modeButtonTextActive]}>Chọn nhiều ngày</Text>
+            </Pressable>
+          </View>
+          <CustomScheduleTable
+            pickMode={pickMode}
+            singleDate={singleDate}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onSelectDate={(dateOrRange) => {
+              if (pickMode === 'single') setSingleDate(dateOrRange);
+              else {
+                if (dateOrRange.start && dateOrRange.end) {
+                  // Đảm bảo start <= end
+                  if (moment(dateOrRange.start).isBefore(dateOrRange.end, 'day')) {
+                    setRangeStart(dateOrRange.start);
+                    setRangeEnd(dateOrRange.end);
+                  } else {
+                    setRangeStart(dateOrRange.end);
+                    setRangeEnd(dateOrRange.start);
+                  }
+                }
+              }
+            }}
+          />
+        </View>
+        <View style={styles.timeRowHorizontal}>
+          <View style={styles.timeCol}>
+            <Text style={styles.timeLabel}>Check-in</Text>
+            <Pressable style={styles.timePickerButton} onPress={() => { setTimeModalType('checkin'); setShowTimeModal(true); }}>
+              <Text style={styles.timePickerText}>{moment(checkinTime).format('HH:mm')}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.timeCol}>
+            <Text style={styles.timeLabel}>Check-out</Text>
+            <Pressable style={styles.timePickerButton} onPress={() => { setTimeModalType('checkout'); setShowTimeModal(true); }}>
+              <Text style={styles.timePickerText}>{moment(checkoutTime).format('HH:mm')}</Text>
+            </Pressable>
+          </View>
+        </View>
+        {/* Card tóm tắt đặt phòng đẹp, chia rõ từng thông tin */}
+        <View style={styles.summaryCardV2}>
+          <Text style={styles.summaryTitle}>Tóm tắt đặt phòng</Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryColLeft}>
+              <Text style={styles.summaryLabel}>Ngày bắt đầu</Text>
+              <Text style={styles.summaryValue}>{pickMode === 'single' ? moment(singleDate).format('dddd, DD/MM/YYYY') : moment(rangeStart).format('dddd, DD/MM/YYYY')}</Text>
+            </View>
+            <View style={styles.summaryColRight}>
+              <Text style={styles.summaryLabel}>Ngày kết thúc</Text>
+              <Text style={styles.summaryValue}>{pickMode === 'single' ? moment(singleDate).format('dddd, DD/MM/YYYY') : moment(rangeEnd).format('dddd, DD/MM/YYYY')}</Text>
+            </View>
+          </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryColLeft}>
+              <Text style={styles.summaryLabel}>Check-in</Text>
+              <Text style={styles.summaryValue}>{moment(checkinTime).format('HH:mm')}</Text>
+            </View>
+            <View style={styles.summaryColRight}>
+              <Text style={styles.summaryLabel}>Check-out</Text>
+              <Text style={styles.summaryValue}>{moment(checkoutTime).format('HH:mm')}</Text>
+            </View>
+          </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryColLeft}>
+              <Text style={styles.summaryLabel}>Tổng số giờ</Text>
+              <Text style={styles.summaryValue}>{Math.max(4, moment(checkoutTime).diff(moment(checkinTime), 'hours', true).toFixed(1))} giờ</Text>
+            </View>
+            <View style={styles.summaryColRight}>
+              <Text style={styles.summaryLabel}>Số ngày</Text>
+              <Text style={styles.summaryValue}>{pickMode === 'single' ? 1 : moment(rangeEnd).diff(moment(rangeStart), 'days') + 1}</Text>
+            </View>
+          </View>
+        </View>
+        {/* Danh sách các ngày trong range, báo có khung giờ hay không */}
+        <View style={styles.dayListCard}>
+          <Text style={styles.dayListTitle}>Chi tiết từng ngày</Text>
+          {(pickMode === 'single' ? [singleDate] : getDatesInRange(rangeStart, rangeEnd)).map((d, idx) => {
+            const key = moment(d).format('YYYY-MM-DD');
+            const slots = studio?.scheduleByDate?.[key] || [];
+            let status = '';
+            let color = '';
+            if (slots.length === 0) {
+              status = 'Còn trống';
+              color = '#4FC3F7'; // xanh dương nhạt
+            } else if (slots.every(s => s.status === 'booked')) {
+              status = 'Hết chỗ';
+              color = '#E57373'; // đỏ
+            } else {
+              status = 'Có khung giờ';
+              color = '#6C47FF'; // tím
+            }
+            return (
+              <View key={key} style={styles.dayRow}>
+                <Text style={styles.dayDate}>{moment(d).format('dddd, DD/MM')}</Text>
+                <Text style={[styles.dayStatus, { color }]}>{status}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <PrimaryButton
+          label="Xác nhận"
+          disabled={disabled}
+          onPress={() => {
+            // Chuẩn hóa dữ liệu booking gửi sang BookingFormScreen
+            let startTime = '';
+            let endTime = '';
+            if (Object.keys(bookingMap).length > 0) {
+              const keys = Object.keys(bookingMap).sort();
+              const first = bookingMap[keys[0]];
+              const last = bookingMap[keys[keys.length - 1]];
+              startTime = first?.checkIn || rangeStart.toISOString();
+              endTime = last?.checkOut || rangeEnd.toISOString();
+            } else {
+              // Nếu không có slot, lấy từ range và thời gian checkin/checkout
+              startTime = `${moment(rangeStart).format('YYYY-MM-DD')}T${moment(checkinTime).format('HH:mm')}`;
+              endTime = `${moment(rangeEnd).format('YYYY-MM-DD')}T${moment(checkoutTime).format('HH:mm')}`;
+            }
+            navigation.navigate("BookingForm", {
+              studioId,
+              startTime,
+              endTime,
+              bookingMap,
+              range: {
+                start: rangeStart.toISOString(),
+                end: rangeEnd.toISOString()
+              }
+            });
+          }}
+        />
       </ScrollView>
+      <TimePickerModal
+        visible={showTimeModal}
+        initialTime={timeModalType === 'checkin' ? checkinTime : checkoutTime}
+        onClose={() => setShowTimeModal(false)}
+        onConfirm={(newTime) => {
+          setShowTimeModal(false);
+          if (timeModalType === 'checkin') {
+            setCheckinTime(newTime);
+            // Nếu checkout < checkin + 4h, tự động set checkout = checkin + 4h
+            if (moment(newTime).add(4, 'hours').isAfter(checkoutTime)) {
+              setCheckoutTime(moment(newTime).add(4, 'hours').toDate());
+            }
+          } else {
+            // Chỉ cho phép checkout >= checkin + 4h
+            if (moment(newTime).isBefore(moment(checkinTime).add(4, 'hours'))) {
+              // Hiện toast hoặc báo lỗi, không cho chọn
+              alert('Giờ check-out phải sau check-in ít nhất 4 giờ!');
+              return;
+            }
+            setCheckoutTime(newTime);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
 
+/* ================== STYLES ================== */
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xxl,
-  },
-  legend: {
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: SPACING.lg, paddingBottom: 40 },
+
+  rangeRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surface,
-    marginBottom: SPACING.xl,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "48%",
-    marginVertical: 6,
-  },
-  legendDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: SPACING.sm,
-  },
-  legendLabel: {
-    fontSize: TYPOGRAPHY.bodySm,
-    color: COLORS.textDark,
-  },
-  calendarCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 4,
-  },
-  calendarTitle: {
-    fontSize: TYPOGRAPHY.headingS,
-    fontWeight: "700",
-    color: COLORS.textDark,
-    textAlign: "center",
-  },
-  calendarMonth: {
-    textAlign: "center",
-    color: COLORS.textMuted,
-    marginBottom: SPACING.lg,
-  },
-  weekHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: SPACING.sm,
-  },
-  weekLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: TYPOGRAPHY.caption,
-    color: COLORS.textMuted,
-  },
-  weekRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: SPACING.sm,
-  },
-  dayCell: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: SPACING.sm,
-  },
-  dayCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
     justifyContent: "center",
+    gap: 12,
+    marginBottom: 20,
   },
-  dayText: {
-    fontSize: TYPOGRAPHY.body,
-    color: COLORS.textDark,
-    fontWeight: "600",
+  rangeBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.brandBlue,
+    padding: 10,
+    borderRadius: 10,
   },
-  calendarActions: {
-    marginTop: SPACING.xl,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+
+  dateLabel: {
+    fontWeight: "700",
+    color: COLORS.brandBlue,
+    marginBottom: 8,
   },
-  secondary: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
+  noSlot: { color: COLORS.textMuted, fontStyle: "italic" },
+
+  slotRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  slot: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginRight: SPACING.md,
-    alignItems: "center",
   },
-  secondaryText: {
-    fontSize: TYPOGRAPHY.headingS,
-    color: COLORS.textDark,
-    fontWeight: "600",
+  slotActive: {
+    backgroundColor: COLORS.brandBlue,
+    borderColor: COLORS.brandBlue,
   },
-  primary: {
+  slotDisabled: { opacity: 0.4 },
+  slotText: { fontWeight: "600" },
+  slotTextDisabled: {
+    textDecorationLine: "line-through",
+    color: COLORS.textMuted,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  modeButton: {
     flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E1F9',
+  },
+  modeButtonActive: {
+    backgroundColor: '#6C47FF',
+    borderColor: '#6C47FF',
+  },
+  modeButtonText: {
+    fontSize: 16,
+    color: '#6C47FF',
+    fontWeight: 'bold',
+  },
+  modeButtonTextActive: {
+    color: '#fff',
+  },
+  datePickerButton: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginVertical: 10,
+    alignItems: 'center',
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E1F9',
+  },
+  datePickerText: {
+    fontSize: 20,
+    color: '#222',
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+  },
+  timeRow: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  timePickerButton: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginVertical: 6,
+    alignItems: 'center',
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E1F9',
+  },
+  timePickerText: {
+    fontSize: 18,
+    color: '#6C47FF',
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+  },
+  timeLabel: {
+    fontSize: 15,
+    color: '#222',
+    marginBottom: 2,
+    marginTop: -2,
+  },
+  calendarCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    margin: 16,
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  timeRowHorizontal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 18,
+    gap: 24,
+  },
+  timeCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryCard: {
+    backgroundColor: '#F7F5FF',
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 32,
+    marginBottom: 16,
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryCardV2: {
+    backgroundColor: '#F7F5FF',
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 32,
+    marginBottom: 16,
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryTitle: {
+    fontWeight: 'bold',
+    color: '#6C47FF',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 12,
+  },
+  summaryColLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  summaryColRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 2,
+  },
+  summaryValue: {
+    fontSize: 16,
+    color: '#222',
+    fontWeight: 'bold',
+  },
+  dayListCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 18,
+    shadowColor: '#6C47FF',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  dayListTitle: {
+    fontWeight: 'bold',
+    color: '#6C47FF',
+    fontSize: 15,
+    marginBottom: 8,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EFFF',
+  },
+  dayDate: {
+    fontSize: 15,
+    color: '#222',
+  },
+  dayStatus: {
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 56,
+    right: 18,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+    minWidth: 140,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#E53935',
+    fontWeight: 'bold',
   },
 });
-
