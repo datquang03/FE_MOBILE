@@ -20,7 +20,7 @@ const BG = {
  * ToastNotification for mobile.
  * Props:
  * - type: "success" | "error" | "warning" | "info"
- * - message: string
+ * - message: string | object (có thể là object trả về từ BE)
  * - suggestion?: string
  * - onClose?: () => void
  * - duration?: number (ms)
@@ -35,6 +35,14 @@ export default function ToastNotification({
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-24)).current;
   const colors = BG[type] || BG.info;
+
+  // Xử lý message là object hoặc string
+  let msg = message;
+  let sugg = suggestion;
+  if (typeof message === 'object' && message !== null) {
+    msg = message.message || message.error || message.errorCode || JSON.stringify(message);
+    sugg = message.suggestion || suggestion || '';
+  }
 
   const animateIn = () => {
     Animated.parallel([
@@ -93,9 +101,9 @@ export default function ToastNotification({
               ? "Cảnh báo"
               : "Thông báo"}
           </Text>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-          {suggestion ? (
-            <Text style={styles.suggestion}>{suggestion}</Text>
+          {msg ? <Text style={styles.message}>{msg}</Text> : null}
+          {sugg ? (
+            <Text style={styles.suggestion}>{sugg}</Text>
           ) : null}
         </View>
         <TouchableOpacity onPress={handleClose} hitSlop={8}>

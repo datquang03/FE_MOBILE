@@ -4,6 +4,10 @@ import customerReducer from "../features/Customer/customerSlice";
 import uploadReducer from "../features/Upload/uploadSlice";
 import studioReducer from "../features/Studio/studioSlice";
 import equipmentReducer from "../features/Equipment/equipmentSlice";
+import serviceReducer from "../features/Service/serviceSlice";
+import commentReducer from "../features/Comment/commentSlice";
+import promotionReducer from "../features/Promotion/promotionSlice";
+import bookingReducer from "../features/Booking/bookingSlice";
 
 const store = configureStore({
   reducer: {
@@ -12,6 +16,10 @@ const store = configureStore({
     upload: uploadReducer,
     studio: studioReducer,
     equipment: equipmentReducer,
+    service: serviceReducer,
+    comment: commentReducer,
+    promotion: promotionReducer,
+    booking: bookingReducer,
   },
   // middleware: (getDefault) => getDefault({ serializableCheck: false }),
 });

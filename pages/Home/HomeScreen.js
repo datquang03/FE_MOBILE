@@ -18,7 +18,6 @@ import { Feather } from "@expo/vector-icons";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
 import { setDesigns, equipments } from "../../constants/mockData";
 import { useFocusEffect } from '@react-navigation/native';
-import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();

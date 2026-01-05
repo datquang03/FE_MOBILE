@@ -37,6 +37,7 @@ import PaymentMethodScreen from "../pages/Booking/PaymentMethodScreen";
 import AddCardScreen from "../pages/Booking/AddCardScreen";
 import CardSuccessScreen from "../pages/Booking/CardSuccessScreen";
 import QRCodeScreen from "../pages/Booking/QRCodeScreen";
+import BookingSuccessScreen from "../pages/Booking/BookingSuccessScreen";
 
 import BookingHistoryScreen from "../pages/History/BookingHistoryScreen";
 import BookingDetailScreen from "../pages/History/BookingDetailScreen";
@@ -132,6 +133,7 @@ export default function AppNavigator() {
         <Stack.Screen name="AddCard" component={AddCardScreen} />
         <Stack.Screen name="CardSuccess" component={CardSuccessScreen} />
         <Stack.Screen name="QRCode" component={QRCodeScreen} />
+        <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
 
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
         <Stack.Screen name="Favorites" component={FavoritesScreen} />

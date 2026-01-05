@@ -9,12 +9,13 @@ import {
   Animated,
   Modal,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, SPACING } from "../../constants/theme";
-import { getStudioSchedule } from "../../features/Studio/studioSlice";
+import { getStudioSchedule, getStudioById } from "../../features/Studio/studioSlice";
 import moment from "moment";
 import "moment/locale/vi";
 import { PanResponder } from 'react-native';
@@ -255,83 +256,68 @@ const CustomScheduleTable = ({ pickMode, singleDate, rangeStart, rangeEnd, onSel
       })}
     </View>
   );
-};
+}
 
-/* ================== TIME PICKER MODAL ================== */
-function ClockFace({ hour, setHour, ampm, setAmpm }) {
-  // 12 giờ trên mặt đồng hồ
-  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-  // Tính vị trí các số trên mặt đồng hồ
-  const getPos = (i, r = 90) => {
-    const angle = ((i - 3) / 12) * 2 * Math.PI;
-    return {
-      left: 120 + r * Math.cos(angle) - 20,
-      top: 120 + r * Math.sin(angle) - 20,
-    };
-  };
+/* ================== SIMPLE HOUR GRID CLOCK ================== */
+function SimpleHourGrid({ hour, setHour, minSelectableHour = 0, isToday = false }) {
   return (
-    <View style={{ width: 240, height: 240, alignSelf: 'center', marginVertical: 8 }}>
-      {/* Kim giờ */}
-      <View style={{ position: 'absolute', left: 120, top: 120, width: 0, height: 0 }}>
-        <View style={{
-          position: 'absolute',
-          width: 4,
-          height: 80,
-          backgroundColor: '#6C47FF',
-          borderRadius: 2,
-          top: 0,
-          left: -2,
-          transform: [{ rotate: `${((hour % 12) / 12) * 360}deg` }],
-        }} />
-        <View style={{
-          position: 'absolute',
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: '#6C47FF',
-          top: -80,
-          left: -20,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{(hour % 12) === 0 ? 12 : hour % 12}</Text>
-        </View>
-      </View>
-      {/* Các số giờ */}
-      {hours.map((h, i) => (
-        <TouchableOpacity
-          key={h}
-          style={{ position: 'absolute', ...getPos(i), width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: (hour % 12 === h % 12) ? '#E5E1F9' : 'transparent' }}
-          onPress={() => setHour(ampm === 'PM' ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h))}
-        >
-          <Text style={{ color: '#6C47FF', fontWeight: 'bold', fontSize: 18 }}>{h}</Text>
-        </TouchableOpacity>
-      ))}
-      {/* Vòng ngoài */}
-      <View style={{ position: 'absolute', left: 20, top: 20, width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: '#E5E1F9' }} />
+    <View style={{ width: 260, flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'center', marginVertical: 8 }}>
+      {[...Array(24).keys()].map((h) => {
+        const disabled = isToday && h < minSelectableHour;
+        return (
+          <TouchableOpacity
+            key={h}
+            disabled={disabled}
+            style={{
+              width: 52, height: 52, margin: 4, borderRadius: 26,
+              backgroundColor: hour === h ? '#6C47FF' : '#fff',
+              justifyContent: 'center', alignItems: 'center',
+              borderWidth: 1, borderColor: '#E5E1F9',
+              opacity: disabled ? 0.3 : 1,
+            }}
+            onPress={() => {
+              if (!disabled) setHour(h);
+            }}
+          >
+            <Text style={{ color: hour === h ? '#fff' : '#6C47FF', fontWeight: 'bold', fontSize: 18 }}>{h.toString().padStart(2, '0')}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
-function TimePickerModal({ visible, initialTime, onClose, onConfirm }) {
+/* ================== TIME PICKER MODAL ================== */
+function TimePickerModal({ visible, initialTime, onClose, onConfirm, minHour = 0, minDate }) {
   const [hour, setHour] = useState(initialTime.getHours());
   const [minute, setMinute] = useState(initialTime.getMinutes());
-  const [ampm, setAmpm] = useState(hour >= 12 ? 'PM' : 'AM');
-  const [selecting, setSelecting] = useState('hour'); // 'hour' or 'minute'
+  const [selecting, setSelecting] = useState('hour');
+
+  // Lấy giờ hiện tại
+  const now = new Date();
+  const isToday = minDate && moment(minDate).isSame(now, 'day');
+  const minSelectableHour = isToday ? now.getHours() + 1 : minHour;
 
   useEffect(() => {
-    setHour(initialTime.getHours());
-    setMinute(initialTime.getMinutes());
-    setAmpm(initialTime.getHours() >= 12 ? 'PM' : 'AM');
+    let initHour = initialTime.getHours();
+    let initMinute = initialTime.getMinutes();
+    // Nếu là hôm nay và giờ hiện tại >= minSelectableHour thì set mặc định là minSelectableHour
+    if (isToday && initHour < minSelectableHour) {
+      initHour = minSelectableHour;
+      initMinute = 0;
+    }
+    setHour(initHour);
+    setMinute(initMinute);
     setSelecting('hour');
-  }, [initialTime, visible]);
+  }, [initialTime, visible, minSelectableHour, isToday]);
 
   const handleOk = () => {
-    let h = hour;
-    if (ampm === 'AM' && h === 12) h = 0;
-    if (ampm === 'PM' && h < 12) h += 12;
+    if (isToday && hour < minSelectableHour) {
+      alert(`Bạn chỉ có thể chọn giờ từ ${minSelectableHour}:00 trở đi hôm nay!`);
+      return;
+    }
     const newTime = new Date(initialTime);
-    newTime.setHours(h);
+    newTime.setHours(hour);
     newTime.setMinutes(minute);
     onConfirm(newTime);
   };
@@ -342,23 +328,15 @@ function TimePickerModal({ visible, initialTime, onClose, onConfirm }) {
         <View style={{ backgroundColor: '#F7F5FF', borderRadius: 18, padding: 24, width: 340, alignItems: 'center', elevation: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <TouchableOpacity onPress={() => setSelecting('hour')} style={{ borderWidth: 2, borderColor: selecting === 'hour' ? '#6C47FF' : 'transparent', borderRadius: 8, padding: 4, minWidth: 56, alignItems: 'center', backgroundColor: '#fff' }}>
-              <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold' }}>{(hour % 12) === 0 ? 12 : hour % 12}</Text>
+              <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold' }}>{hour.toString().padStart(2, '0')}</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold', marginHorizontal: 4 }}>:</Text>
             <TouchableOpacity onPress={() => setSelecting('minute')} style={{ borderWidth: 2, borderColor: selecting === 'minute' ? '#6C47FF' : 'transparent', borderRadius: 8, padding: 4, minWidth: 56, alignItems: 'center', backgroundColor: '#fff' }}>
               <Text style={{ fontSize: 32, color: '#6C47FF', fontWeight: 'bold' }}>{minute.toString().padStart(2, '0')}</Text>
             </TouchableOpacity>
-            <View style={{ marginLeft: 12 }}>
-              <TouchableOpacity onPress={() => setAmpm('AM')} style={{ backgroundColor: ampm === 'AM' ? '#E5E1F9' : '#fff', borderRadius: 6, padding: 4, marginBottom: 2 }}>
-                <Text style={{ color: '#6C47FF', fontWeight: 'bold' }}>AM</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setAmpm('PM')} style={{ backgroundColor: ampm === 'PM' ? '#E5E1F9' : '#fff', borderRadius: 6, padding: 4 }}>
-                <Text style={{ color: '#6C47FF', fontWeight: 'bold' }}>PM</Text>
-              </TouchableOpacity>
-            </View>
           </View>
           {selecting === 'hour' ? (
-            <ClockFace hour={hour} setHour={setHour} ampm={ampm} setAmpm={setAmpm} />
+            <SimpleHourGrid hour={hour} setHour={(h) => { setHour(h); setSelecting('minute'); }} minSelectableHour={minSelectableHour} isToday={isToday} />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 240, alignSelf: 'center', marginVertical: 16, justifyContent: 'center' }}>
               {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
@@ -387,6 +365,10 @@ export default function SelectDateScreen({ navigation, route }) {
   const dispatch = useDispatch();
   const studioId = route?.params?.studio?._id;
 
+  // Lấy studio detail từ redux để luôn có dữ liệu mới nhất
+  const studio = useSelector((state) => state.studio.studioDetail);
+  const studioLoading = useSelector((state) => state.studio.studioDetailLoading);
+
   const { studioSchedule, studioScheduleLoading } = useSelector(
     (state) => state.studio
   );
@@ -403,13 +385,11 @@ export default function SelectDateScreen({ navigation, route }) {
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
-    dispatch(getStudioSchedule());
-  }, []);
-
-  const studio = useMemo(
-    () => studioSchedule?.studios?.find((s) => s._id === studioId),
-    [studioSchedule, studioId]
-  );
+    if (studioId) {
+      dispatch(getStudioById(studioId));
+      dispatch(getStudioSchedule());
+    }
+  }, [studioId, dispatch]);
 
   const dates = useMemo(
     () => getDatesInRange(rangeStart, rangeEnd),
@@ -502,6 +482,16 @@ export default function SelectDateScreen({ navigation, route }) {
         </View>
         {/* Card tóm tắt đặt phòng đẹp, chia rõ từng thông tin */}
         <View style={styles.summaryCardV2}>
+          {/* Ảnh đại diện studio */}
+          {studio?.images?.[0] && (
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <Image
+                source={{ uri: studio.images[0] }}
+                style={{ width: 120, height: 80, borderRadius: 12, backgroundColor: '#eee' }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
           <Text style={styles.summaryTitle}>Tóm tắt đặt phòng</Text>
           <View style={styles.summaryRow}>
             <View style={styles.summaryColLeft}>
@@ -523,15 +513,52 @@ export default function SelectDateScreen({ navigation, route }) {
               <Text style={styles.summaryValue}>{moment(checkoutTime).format('HH:mm')}</Text>
             </View>
           </View>
-          <View style={styles.summaryRow}>
+          {/* Tính tổng số giờ thuê thực tế */}
+          <View style={[styles.summaryRow, { marginTop: 10, padding: 10, backgroundColor: '#E3F2FD', borderRadius: 10 }]}>
             <View style={styles.summaryColLeft}>
-              <Text style={styles.summaryLabel}>Tổng số giờ</Text>
-              <Text style={styles.summaryValue}>{Math.max(4, moment(checkoutTime).diff(moment(checkinTime), 'hours', true).toFixed(1))} giờ</Text>
+              <Text style={[styles.summaryLabel, { color: '#1976D2', fontWeight: 'bold' }]}>Tổng số giờ</Text>
+              <Text style={[styles.summaryValue, { color: '#1976D2', fontSize: 20, fontWeight: 'bold' }]}> {
+                (() => {
+                  if (pickMode === 'single') {
+                    const diffMs = checkoutTime.getTime() - checkinTime.getTime();
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    return Math.max(4, diffHours.toFixed(1));
+                  } else {
+                    const start = new Date(rangeStart);
+                    start.setHours(checkinTime.getHours());
+                    start.setMinutes(checkinTime.getMinutes());
+                    const end = new Date(rangeEnd);
+                    end.setHours(checkoutTime.getHours());
+                    end.setMinutes(checkoutTime.getMinutes());
+                    const diffMs = end.getTime() - start.getTime();
+                    const diffHours = diffMs / (1000 * 60 * 60);
+                    return diffHours > 0 ? diffHours.toFixed(1) : 0;
+                  }
+                })()
+              } giờ</Text>
             </View>
             <View style={styles.summaryColRight}>
-              <Text style={styles.summaryLabel}>Số ngày</Text>
-              <Text style={styles.summaryValue}>{pickMode === 'single' ? 1 : moment(rangeEnd).diff(moment(rangeStart), 'days') + 1}</Text>
+              <Text style={[styles.summaryLabel, { color: '#E53935', fontWeight: 'bold' }]}>Số ngày</Text>
+              <Text style={[styles.summaryValue, { color: '#E53935', fontSize: 20, fontWeight: 'bold' }]}> {
+                pickMode === 'single' ? 1 : moment(rangeEnd).diff(moment(rangeStart), 'days') + 1
+              }</Text>
             </View>
+          </View>
+          {/* Giá phòng highlight */}
+          <View style={{ alignItems: 'center', marginTop: 10 }}>
+            <Text style={{ color: '#888', fontSize: 15 }}>Giá phòng</Text>
+            <Text style={{
+              color: '#6C47FF',
+              fontWeight: 'bold',
+              fontSize: 22,
+              backgroundColor: '#E5E1F9',
+              paddingHorizontal: 18,
+              paddingVertical: 6,
+              borderRadius: 12,
+              marginTop: 2,
+            }}>
+              {studio?.basePricePerHour?.toLocaleString() || '...'}đ/giờ
+            </Text>
           </View>
         </View>
         {/* Danh sách các ngày trong range, báo có khung giờ hay không */}
@@ -578,7 +605,28 @@ export default function SelectDateScreen({ navigation, route }) {
               startTime = `${moment(rangeStart).format('YYYY-MM-DD')}T${moment(checkinTime).format('HH:mm')}`;
               endTime = `${moment(rangeEnd).format('YYYY-MM-DD')}T${moment(checkoutTime).format('HH:mm')}`;
             }
+
+            // Tính tổng số giờ và số ngày
+            let totalHours = 0;
+            let totalDays = 1;
+            if (pickMode === 'single') {
+              const diffMs = checkoutTime.getTime() - checkinTime.getTime();
+              totalHours = Math.max(4, diffMs / (1000 * 60 * 60));
+              totalDays = 1;
+            } else {
+              const start = new Date(rangeStart);
+              start.setHours(checkinTime.getHours());
+              start.setMinutes(checkinTime.getMinutes());
+              const end = new Date(rangeEnd);
+              end.setHours(checkoutTime.getHours());
+              end.setMinutes(checkoutTime.getMinutes());
+              const diffMs = end.getTime() - start.getTime();
+              totalHours = diffMs > 0 ? diffMs / (1000 * 60 * 60) : 0;
+              totalDays = moment(rangeEnd).diff(moment(rangeStart), 'days') + 1;
+            }
+
             navigation.navigate("BookingForm", {
+              studio, // <-- truyền nguyên object studio
               studioId,
               startTime,
               endTime,
@@ -586,6 +634,16 @@ export default function SelectDateScreen({ navigation, route }) {
               range: {
                 start: rangeStart.toISOString(),
                 end: rangeEnd.toISOString()
+              },
+              summary: {
+                pickMode,
+                startDate: moment(pickMode === 'single' ? singleDate : rangeStart).format('YYYY-MM-DD'),
+                endDate: moment(pickMode === 'single' ? singleDate : rangeEnd).format('YYYY-MM-DD'),
+                checkinTime: moment(checkinTime).format('HH:mm'),
+                checkoutTime: moment(checkoutTime).format('HH:mm'),
+                totalHours,
+                totalDays,
+                roomPricePerHour: studio?.basePricePerHour // lấy từ studio truyền vào
               }
             });
           }}
@@ -606,13 +664,13 @@ export default function SelectDateScreen({ navigation, route }) {
           } else {
             // Chỉ cho phép checkout >= checkin + 4h
             if (moment(newTime).isBefore(moment(checkinTime).add(4, 'hours'))) {
-              // Hiện toast hoặc báo lỗi, không cho chọn
               alert('Giờ check-out phải sau check-in ít nhất 4 giờ!');
               return;
             }
             setCheckoutTime(newTime);
           }
         }}
+        minDate={pickMode==='single'?singleDate:rangeStart}
       />
     </SafeAreaView>
   );
@@ -635,14 +693,12 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
-
   dateLabel: {
     fontWeight: "700",
     color: COLORS.brandBlue,
     marginBottom: 8,
   },
   noSlot: { color: COLORS.textMuted, fontStyle: "italic" },
-
   slotRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   slot: {
     paddingVertical: 10,
