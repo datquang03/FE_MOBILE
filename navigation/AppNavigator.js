@@ -27,6 +27,7 @@ import RoomViewerScreen from "../pages/Detail/RoomViewerScreen";
 import SetDesignHighlightScreen from "../pages/SetDesign/SetDesignHighlightScreen";
 import SetDesignListScreen from "../pages/SetDesign/SetDesignListScreen";
 import SetDesignFormScreen from "../pages/SetDesign/SetDesignFormScreen";
+import SetDesignDetailScreen from "../pages/SetDesign/SetDesignDetailScreen";
 
 import BookingRequestScreen from "../pages/Booking/BookingRequestScreen";
 import SelectDateScreen from "../pages/Booking/SelectDateScreen";
@@ -123,6 +124,7 @@ export default function AppNavigator() {
         <Stack.Screen name="SetDesignHighlight" component={SetDesignHighlightScreen} />
         <Stack.Screen name="SetDesignList" component={SetDesignListScreen} />
         <Stack.Screen name="SetDesignForm" component={SetDesignFormScreen} />
+        <Stack.Screen name="SetDesignDetail" component={SetDesignDetailScreen} />
 
         <Stack.Screen name="BookingRequest" component={BookingRequestScreen} />
         <Stack.Screen name="SelectDate" component={SelectDateScreen} />

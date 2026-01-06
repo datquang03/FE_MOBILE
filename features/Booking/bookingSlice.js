@@ -8,7 +8,6 @@ export const createBooking = createAsyncThunk(
       const { token } = getState().auth;
       if (!token) throw new Error("Bạn cần đăng nhập để đặt phòng");
 
-      // Chuẩn hóa payload: chỉ gửi các trường backend cần
       const {
         studioId,
         startTime,
@@ -16,7 +15,7 @@ export const createBooking = createAsyncThunk(
         details,
         promoId,
         promoCode,
-        discountAmount
+        discountAmount,
       } = bookingPayload;
       const payload = {
         studioId,
@@ -31,10 +30,9 @@ export const createBooking = createAsyncThunk(
       const response = await axiosInstance.post("/bookings", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Đúng chuẩn API: trả về response.data.data
-      return response.data.data;
+      return response.data;
     } catch (err) {
+      console.log(err);
       return rejectWithValue(
         err.response?.data || { message: "Đặt phòng thất bại" }
       );
@@ -58,13 +56,18 @@ const bookingSlice = createSlice({
       })
       .addCase(createBooking.fulfilled, (state, action) => {
         state.bookingLoading = false;
-        // Lấy booking từ action.payload.booking (chuẩn backend)
-        state.booking = action.payload?.booking || action.payload;
+        state.booking =
+          action.payload.data?.booking ||
+          action.payload.booking ||
+          action.payload;
+        state.bookingError =
+          action.payload?.success === false
+            ? action?.payload.message || "Đặt phòng thất bại"
+            : null;
       })
       .addCase(createBooking.rejected, (state, action) => {
         state.bookingLoading = false;
-        // Đảm bảo bookingError là message string
-        state.bookingError = action.payload?.message || action.error?.message || "Đặt phòng thất bại";
+        state.bookingError = action.payload?.message || "Đặt phòng thất bại";
       });
   },
 });

@@ -2,6 +2,8 @@ import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { getCurrentUser } from "../../features/Authentication/authSlice";
 import { getActiveStudio } from "../../features/Studio/studioSlice";
+import { getActiveSetDesign } from "../../features/SetDesign/setDesignSlice";
+import { getAllEquipments } from "../../features/Equipment/equipmentSlice";
 import {
   SafeAreaView,
   View,
@@ -27,6 +29,12 @@ export default function HomeScreen({ navigation }) {
   const studios = useSelector((state) => state.studio.studios);
   const studioLoading = useSelector((state) => state.studio.loading);
   const studioError = useSelector((state) => state.studio.error);
+  const setDesigns = useSelector((state) => state.setDesign?.setDesigns || []);
+  const setDesignLoading = useSelector((state) => state.setDesign?.loading);
+  const setDesignError = useSelector((state) => state.setDesign?.error);
+  const equipments = useSelector((state) => state.equipment?.equipments?.data?.equipment || []);
+  const equipmentLoading = useSelector((state) => state.equipment?.loading);
+  const equipmentError = useSelector((state) => state.equipment?.error);
   const [refreshing, setRefreshing] = useState(false);
 
   const isLoggedIn = !!user && !!token;
@@ -46,6 +54,8 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     dispatch(getActiveStudio());
+    dispatch(getActiveSetDesign());
+    dispatch(getAllEquipments());
   }, [dispatch]);
 
   useFocusEffect(
@@ -145,28 +155,25 @@ export default function HomeScreen({ navigation }) {
             contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.horizontalCard}
+                style={styles.designCard}
                 onPress={() => navigation.navigate("Detail", { item })}
               >
                 <View style={{ position: 'relative' }}>
                   <Image
                     source={{ uri: item.images?.[0] || undefined }}
-                    style={styles.horizontalImage}
+                    style={styles.designImage}
                     resizeMode="cover"
                   />
-                  {/* Badge rating: always show, use avgRating and reviewCount */}
                   <View style={styles.badgeRating}>
                     <Feather name="star" size={16} color={COLORS.brandGold} />
                     <Text style={styles.badgeRatingText}>{item.avgRating?.toFixed(1) || '0.0'}</Text>
                     <Text style={{ color: COLORS.textMuted, marginLeft: 4, fontSize: 13 }}>({item.reviewCount})</Text>
                   </View>
                 </View>
-                <View style={styles.horizontalContent}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardMeta}>{item.location}</Text>
-                  <Text style={styles.cardMeta}>{item.description?.slice(0, 40) + (item.description?.length > 40 ? '...' : '')}</Text>
-                  <Text style={styles.cardMeta}>Sức chứa: {item.capacity}</Text>
-                  <Text style={styles.cardPriceHighlight}>{item.basePricePerHour.toLocaleString()}đ/giờ</Text>
+                <View style={styles.designContent}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[styles.cardMeta, { minHeight: 38 }]} numberOfLines={2}>{item.description}</Text>
+                  <Text style={styles.cardPrice}>{item.basePricePerHour.toLocaleString()}đ/giờ</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -178,25 +185,34 @@ export default function HomeScreen({ navigation }) {
           actionLabel="Xem thêm"
           onPress={() => navigation.navigate("SetDesignList")}
         />
-        <FlatList
-          data={setDesigns}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.designCard}
-              onPress={() => navigation.navigate("SetDesignDetail", { item })}
-            >
-              <Image source={{ uri: item.image }} style={styles.designImage} />
-              <View style={styles.designContent}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardPrice}>{item.price}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+        {setDesignLoading ? (
+          <StudioSkeleton />
+        ) : setDesignError ? (
+          <View style={{ height: 160, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: 'red' }}>Lỗi tải set design!</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={setDesigns}
+            keyExtractor={(item) => item._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.designCard}
+                onPress={() => navigation.navigate("SetDesignDetail", { item })}
+              >
+                <Image source={{ uri: item.images?.[0] }} style={styles.designImage} />
+                <View style={styles.designContent}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardMeta} numberOfLines={2}>{item.description}</Text>
+                  <Text style={styles.cardPrice}>{item.price?.toLocaleString()}đ</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
 
         <SectionHeader
           title="Chúng tôi đang ở đây"
@@ -211,23 +227,32 @@ export default function HomeScreen({ navigation }) {
           title="Dụng Cụ"
           actionLabel="Xem thêm"
         />
-        <FlatList
-          data={equipments}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
-          renderItem={({ item }) => (
-            <View style={styles.equipmentCard}>
-              <Image source={{ uri: item.image }} style={styles.equipmentImage} />
-              <View style={{ flex: 1, marginLeft: SPACING.md }}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardPrice}>{item.price}</Text>
-                <Text style={styles.oldPrice}>{item.oldPrice}</Text>
+        {equipmentLoading ? (
+          <StudioSkeleton />
+        ) : equipmentError ? (
+          <View style={{ height: 160, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: 'red' }}>Lỗi tải dụng cụ!</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={equipments}
+            keyExtractor={(item) => item._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
+            renderItem={({ item }) => (
+              <View style={styles.equipmentCard}>
+                <Image source={{ uri: item.image }} style={styles.equipmentImage} />
+                <View style={{ flex: 1, marginLeft: SPACING.md }}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardMeta} numberOfLines={2}>{item.description}</Text>
+                  <Text style={styles.cardPrice}>{item.pricePerHour?.toLocaleString()}đ/giờ</Text>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 13 }}>Còn lại: {item.availableQty}/{item.totalQty}</Text>
+                </View>
               </View>
-            </View>
-          )}
-        />
+            )}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

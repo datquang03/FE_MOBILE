@@ -201,7 +201,12 @@ export default function BookingFormScreen({ navigation, route }) {
                   selectedServices.includes(item._id) && styles.serviceCheckboxMiniSelected
                 ]}>
                   {selectedServices.includes(item._id) && (
-                    <Text style={{fontSize: 15, color: '#1976D2'}}>✔️</Text>
+                    <View style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      backgroundColor: '#1976D2',
+                    }} />
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
@@ -434,7 +439,14 @@ const EquipmentCard = ({ item, selected, onPress }) => (
         justifyContent: 'center',
         zIndex: 2,
       }}>
-        {selected && <Text style={{fontSize: 15, color: '#1976D2'}}>✔️</Text>}
+        {selected ? (
+          <View style={{
+            width: 12,
+            height: 12,
+            borderRadius: 2,
+            backgroundColor: '#1976D2',
+          }} />
+        ) : null}
       </View>
     </View>
     <Text style={{ fontWeight: "bold", color: "#1976D2", fontSize: 16, textAlign: 'center' }}>{item.name}</Text>

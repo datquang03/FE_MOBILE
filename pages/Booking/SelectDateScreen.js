@@ -18,7 +18,6 @@ import { COLORS, SPACING } from "../../constants/theme";
 import { getStudioSchedule, getStudioById } from "../../features/Studio/studioSlice";
 import moment from "moment";
 import "moment/locale/vi";
-import { PanResponder } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 moment.locale("vi");

@@ -8,6 +8,7 @@ import serviceReducer from "../features/Service/serviceSlice";
 import commentReducer from "../features/Comment/commentSlice";
 import promotionReducer from "../features/Promotion/promotionSlice";
 import bookingReducer from "../features/Booking/bookingSlice";
+import setDesignReducer from "../features/SetDesign/setDesignSlice";
 
 const store = configureStore({
   reducer: {
@@ -20,8 +21,8 @@ const store = configureStore({
     comment: commentReducer,
     promotion: promotionReducer,
     booking: bookingReducer,
+    setDesign: setDesignReducer, // thêm reducer setDesign
   },
-  // middleware: (getDefault) => getDefault({ serializableCheck: false }),
 });
 
 export { createBooking } from "../features/Booking/bookingSlice";

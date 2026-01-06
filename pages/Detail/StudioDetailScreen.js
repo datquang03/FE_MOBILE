@@ -29,6 +29,7 @@ import {
 } from "../../features/Comment/commentSlice";
 import { useFocusEffect } from "@react-navigation/native";
 import { getCurrentUser } from "../../features/Authentication/authSlice";
+import StudioDetailSkeleton from "../../components/skeletons/StudioDetailSkeleton";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -602,64 +603,34 @@ export default function StudioDetailScreen({ route, navigation }) {
       />
       {/* Dropdown menu khi bấm ba chấm */}
       {showMenu && (
-        <View style={styles.dropdownMenu}>
+        <>
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false); /* TODO: handle report */
-            }}
-          >
-            <Feather
-              name="alert-circle"
-              size={20}
-              color="#E53935"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.menuItemText}>
-              {" "}
-              <Text style={{ color: "#E53935", fontWeight: "bold" }}>
-                Báo cáo
-              </Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
+            style={styles.overlay}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          />
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false); /* TODO: handle report */
+              }}
+            >
+              <Feather
+                name="alert-circle"
+                size={20}
+                color="#E53935"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.menuItemText}>Báo cáo</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
       {loading && <FullScreenLoading />}
       <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xxl }}>
-        {/* Skeleton loading */}
         {loading ? (
-          <View>
-            <View style={[styles.hero, { backgroundColor: COLORS.border }]} />
-            <View style={{ padding: SPACING.xl }}>
-              <View
-                style={{
-                  width: 180,
-                  height: 28,
-                  backgroundColor: COLORS.border,
-                  borderRadius: 8,
-                  marginBottom: 12,
-                }}
-              />
-              <View
-                style={{
-                  width: 100,
-                  height: 18,
-                  backgroundColor: COLORS.border,
-                  borderRadius: 8,
-                  marginBottom: 16,
-                }}
-              />
-              <View
-                style={{
-                  width: "100%",
-                  height: 60,
-                  backgroundColor: COLORS.border,
-                  borderRadius: 8,
-                  marginBottom: 24,
-                }}
-              />
-            </View>
-          </View>
+          <StudioDetailSkeleton />
         ) : error ? (
           <View style={{ padding: SPACING.xl }}>
             <Text style={{ color: "red" }}>
@@ -670,58 +641,12 @@ export default function StudioDetailScreen({ route, navigation }) {
           <>
             {studio.images?.length > 0 && renderImageSlider()}
             {renderImageModal()}
-            <View style={styles.sheet}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>{studio.name}</Text>
 
-                <TouchableOpacity onPress={() => setLiked(!liked)}>
-                  <Feather
-                    name={liked ? "heart" : "heart"}
-                    size={22}
-                    color={liked ? "red" : COLORS.textMuted}
-                    style={{ opacity: liked ? 1 : 0.7 }}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.location}>{studio.location}</Text>
-              <View style={styles.infoRowGroup}>
-                <View style={styles.infoRow}>
-                  <Feather
-                    name="maximize"
-                    size={16}
-                    color={COLORS.textMuted}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text style={styles.infoLabel}>Diện tích:</Text>
-                  <Text style={styles.infoValue}>{studio.area} m²</Text>
-                  <Feather
-                    name="users"
-                    size={16}
-                    color={COLORS.textMuted}
-                    style={{ marginLeft: 16, marginRight: 4 }}
-                  />
-                  <Text style={styles.infoLabel}>Sức chứa:</Text>
-                  <Text style={styles.infoValue}>{studio.capacity}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Feather
-                    name="dollar-sign"
-                    size={16}
-                    color={COLORS.brandBlue}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text style={styles.infoLabel}>Giá:</Text>
-                  <Text style={styles.price}>
-                    {studio.basePricePerHour?.toLocaleString()}đ/giờ
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.description}>{studio.description}</Text>
-              {renderComments()}
-            </View>
+            <View style={styles.sheet}>{renderComments()}</View>
           </>
         ) : null}
       </ScrollView>
+
       {/* Bottom bar */}
       <View style={styles.bottomBar}>
         <View>
@@ -737,7 +662,10 @@ export default function StudioDetailScreen({ route, navigation }) {
             if (!user) {
               navigation.navigate("SignIn");
             } else {
-              navigation.navigate("SelectDate", { studio, allowOvernight: true });
+              navigation.navigate("SelectDate", {
+                studio,
+                allowOvernight: true,
+              });
             }
           }}
         />
@@ -1103,5 +1031,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginVertical: 16,
     textAlign: "center",
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.01)",
+    zIndex: 99,
   },
 });
