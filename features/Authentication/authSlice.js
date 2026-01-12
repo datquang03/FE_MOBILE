@@ -184,6 +184,19 @@ export const registerStaff = createAsyncThunk(
   }
 );
 
+export const logoutAsync = createAsyncThunk(
+  "auth/logoutAsync",
+  async (_, { rejectWithValue }) => {
+    try {
+      await axiosInstance.post("/auth/logout");
+      await clearStorage();
+      return true;
+    } catch (err) {
+      return rejectWithValue(err.response?.data || { message: "Đăng xuất thất bại" });
+    }
+  }
+);
+
 // ================= SLICE =================
 const authSlice = createSlice({
   name: "auth",
@@ -296,6 +309,16 @@ const authSlice = createSlice({
           state.user = { ...state.user, ...action.payload };
           saveToStorage(state.user, state.token);
         }
+      })
+
+      // ===== LOGOUT ASYNC =====
+      .addCase(logoutAsync.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.error = null;
+      })
+      .addCase(logoutAsync.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });

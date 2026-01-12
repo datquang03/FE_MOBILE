@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -7,77 +7,205 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
+  Image,
 } from "react-native";
-import HeaderBar from "../../components/ui/HeaderBar";
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
-import { studios } from "../../constants/mockData";
+import { useDispatch, useSelector } from "react-redux";
+import { Ionicons } from "@expo/vector-icons";
 
-const recents = ["Studio 1", "Set Design", "Dụng cụ"];
+import HeaderBar from "../../components/ui/HeaderBar";
+import { COLORS, RADIUS, SPACING } from "../../constants/theme";
+import { createSearch } from "../../features/Search/searchSlice";
+import SearchInputSkeletonLoading from "../../components/skeletons/SearchInputSkeletonLoading";
 
 export default function SearchScreen({ navigation }) {
+  const dispatch = useDispatch();
+  const [keyword, setKeyword] = useState("");
+
+  const { results, loading } = useSelector((state) => state.search);
+
+  /* =======================
+      🔥 DEBOUNCE SEARCH
+  ======================= */
+  useEffect(() => {
+    if (!keyword.trim()) return;
+
+    const timer = setTimeout(() => {
+      dispatch(createSearch(keyword));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  /* =======================
+      🔥 FLATTEN DATA + SECTION
+  ======================= */
+  const listData = useMemo(() => {
+    const data = [];
+
+    if (results?.studios?.length) {
+      data.push({ type: "header", title: "Studio" });
+      data.push(
+        ...results.studios.map((item) => ({
+          ...item,
+          entityType: "studio",
+        }))
+      );
+    }
+
+    if (results?.setDesigns?.length) {
+      data.push({ type: "header", title: "Set thiết kế" });
+      data.push(
+        ...results.setDesigns.map((item) => ({
+          ...item,
+          entityType: "setDesign",
+        }))
+      );
+    }
+
+    if (results?.equipment?.length) {
+      data.push({ type: "header", title: "Thiết bị" });
+      data.push(
+        ...results.equipment.map((item) => ({
+          ...item,
+          entityType: "equipment",
+        }))
+      );
+    }
+
+    return data;
+  }, [results]);
+
+  /* =======================
+      🔥 RENDER ITEM
+  ======================= */
+  const renderItem = ({ item }) => {
+    if (item.type === "header") {
+      return <Text style={styles.sectionHeader}>{item.title}</Text>;
+    }
+
+    const imageUri =
+      item.entityType === "studio"
+        ? item.images?.[0]
+        : item.entityType === "setDesign"
+        ? item.images?.[0]
+        : item.image;
+
+    return (
+      <TouchableOpacity
+        style={styles.resultCard}
+        activeOpacity={0.85}
+        onPress={() => {
+          if (item.entityType === "studio") {
+            navigation.navigate("Detail", {
+              studioId: item._id,
+            });
+          }
+
+          if (item.entityType === "setDesign") {
+            navigation.navigate("SetDesignDetail", {
+              setDesignId: item._id,
+            });
+          }
+
+          if (item.entityType === "equipment") {
+            console.log("Equipment clicked:", item._id);
+          }
+        }}
+      >
+        <View style={styles.row}>
+          {/* IMAGE */}
+          {imageUri && (
+            <Image source={{ uri: imageUri }} style={styles.thumb} />
+          )}
+
+          <View style={{ flex: 1 }}>
+            <View style={styles.row}>
+              <Ionicons
+                name={
+                  item.entityType === "studio"
+                    ? "business"
+                    : item.entityType === "setDesign"
+                    ? "color-palette"
+                    : "camera"
+                }
+                size={16}
+                color={COLORS.brandBlue}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.resultTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+            </View>
+
+            {!!item.basePricePerHour && (
+              <Text style={styles.price}>{item.basePricePerHour}đ / giờ</Text>
+            )}
+
+            {!!item.pricePerHour && (
+              <Text style={styles.price}>{item.pricePerHour}đ / giờ</Text>
+            )}
+
+            {!!item.price && <Text style={styles.price}>{item.price}đ</Text>}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <HeaderBar title="Tìm Kiếm" onBack={() => navigation.goBack?.()} />
-      <View style={styles.inputRow}>
-        <TextInput
-          placeholder="Bạn cần gì..."
-          placeholderTextColor={COLORS.textMuted}
-          style={styles.input}
-        />
-        <TouchableOpacity style={styles.filterButton}>
-          <Text style={styles.filterText}>☰</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.card}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.sectionLabel}>Gần đây</Text>
-          <TouchableOpacity>
-            <Text style={styles.link}>Xoá tất cả</Text>
-          </TouchableOpacity>
-        </View>
-        {recents.map((item) => (
-          <Text key={item} style={styles.recentItem}>
-            {item}
-          </Text>
-        ))}
-      </View>
+      <HeaderBar title="Tìm kiếm" onBack={() => navigation.goBack()} />
 
-      <View style={styles.rowBetween}>
-        <Text style={styles.sectionLabel}>Xem gần đây</Text>
-        <TouchableOpacity>
-          <Text style={styles.link}>Xem tất cả</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={studios}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.resultCard}
-            onPress={() => navigation.navigate("SearchResults")}
-          >
-            <Text style={styles.resultTitle}>{item.name}</Text>
-            <Text style={styles.meta}>{item.size}</Text>
-            <Text style={styles.price}>{item.price}</Text>
-          </TouchableOpacity>
+      <View style={styles.content}>
+        <View style={styles.inputRow}>
+          <TextInput
+            placeholder="Bạn cần gì..."
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.input}
+            value={keyword}
+            onChangeText={setKeyword}
+            returnKeyType="search"
+          />
+        </View>
+
+        {loading ? (
+          <SearchInputSkeletonLoading />
+        ) : (
+          <FlatList
+            data={listData}
+            keyExtractor={(item, index) =>
+              item._id ? item._id : item.title + index
+            }
+            renderItem={renderItem}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          />
         )}
-      />
+      </View>
     </SafeAreaView>
   );
 }
 
+/* =======================
+      🎨 STYLES
+======================= */
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: COLORS.background,
-    padding: SPACING.lg,
+    marginTop: 32,
   },
+
+  content: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: 16,
+  },
+
   inputRow: {
-    flexDirection: "row",
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
+
   input: {
-    flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.lg,
@@ -85,59 +213,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: SPACING.md,
-  },
-  filterText: {
-    fontSize: 18,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.md,
-  },
-  sectionLabel: {
-    fontSize: TYPOGRAPHY.headingS,
-    fontWeight: "600",
-    color: COLORS.textDark,
-  },
-  link: {
-    color: COLORS.danger,
-    fontWeight: "600",
-  },
-  recentItem: {
-    color: COLORS.textMuted,
+
+  sectionHeader: {
+    marginTop: 32,
     marginBottom: SPACING.sm,
+    fontWeight: "700",
+    color: COLORS.textMuted,
   },
+
   resultCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
+
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    marginRight: 12,
+    backgroundColor: COLORS.border,
+  },
+
   resultTitle: {
     fontWeight: "700",
     color: COLORS.textDark,
   },
-  meta: {
-    color: COLORS.textMuted,
-  },
+
   price: {
+    marginTop: 4,
     color: COLORS.brandBlue,
     fontWeight: "700",
   },
-});
 
+  meta: {
+    color: COLORS.textMuted,
+    marginBottom: SPACING.sm,
+  },
+});

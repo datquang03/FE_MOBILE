@@ -14,7 +14,6 @@ import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
 import { useFocusEffect } from '@react-navigation/native';
-import FullScreenLoading from "../../components/loadings/fullScreenLoading";
 
 const settings = [
   { id: "card", label: "Thẻ", route: "Cards" },
@@ -35,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const { customer, loading } = useSelector((state) => state.customer);
   const { token } = useSelector((state) => state.auth);
 
+  // Luôn gọi hook trước mọi return
   useEffect(() => {
     if (token) dispatch(getMyProfile());
   }, [token]);
@@ -44,6 +44,24 @@ export default function ProfileScreen({ navigation }) {
       if (token) dispatch(getMyProfile());
     }, [token, dispatch])
   );
+
+  // Nếu chưa đăng nhập, show UI đẹp yêu cầu đăng nhập
+  if (!token) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyImg}> 
+            <Text style={{ fontSize: 54, color: COLORS.brandBlue, fontWeight: 'bold' }}>?</Text>
+          </View>
+          <Text style={styles.emptyTitle}>Bạn chưa đăng nhập</Text>
+          <Text style={styles.emptyDesc}>Vui lòng đăng nhập để xem và chỉnh sửa hồ sơ cá nhân của bạn.</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => navigation.navigate('SignIn')}>
+            <Text style={styles.loginBtnText}>Đăng nhập</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const getRoleLabel = (role) => {
     if (role === "customer") return "Khách hàng";
@@ -148,7 +166,6 @@ export default function ProfileScreen({ navigation }) {
             />
           </View>
         </ScrollView>
-        <FullScreenLoading loading={loading} text="Đang tải hồ sơ..." />
       </View>
     </SafeAreaView>
   );
@@ -262,5 +279,48 @@ const styles = StyleSheet.create({
 
   footer: {
     padding: SPACING.xxl,
+  },
+
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.background,
+  },
+  emptyImg: {
+    width: 180,
+    height: 180,
+    marginBottom: 24,
+    opacity: 0.85,
+    borderRadius: 90,
+    backgroundColor: COLORS.brandBlue + '22',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.brandBlue,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  loginBtn: {
+    backgroundColor: COLORS.brandBlue,
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+  },
+  loginBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
   },
 });

@@ -241,7 +241,10 @@ export default function HomeScreen({ navigation }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: SPACING.lg }}
             renderItem={({ item }) => (
-              <View style={styles.equipmentCard}>
+              <TouchableOpacity
+                style={styles.equipmentCard}
+                onPress={() => navigation.navigate("EquipmentDetail", { item })}
+              >
                 <Image source={{ uri: item.image }} style={styles.equipmentImage} />
                 <View style={{ flex: 1, marginLeft: SPACING.md }}>
                   <Text style={styles.cardTitle}>{item.name}</Text>
@@ -249,7 +252,7 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.cardPrice}>{item.pricePerHour?.toLocaleString()}đ/giờ</Text>
                   <Text style={{ color: COLORS.textMuted, fontSize: 13 }}>Còn lại: {item.availableQty}/{item.totalQty}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}

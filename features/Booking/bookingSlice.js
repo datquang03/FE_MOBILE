@@ -40,12 +40,40 @@ export const createBooking = createAsyncThunk(
   }
 );
 
+export const singlePayment = createAsyncThunk(
+  "booking/singlePayment",
+  async ({ bookingId, percentage }, { rejectWithValue, getState }) => {
+    try {
+      const { token } = getState().auth;
+      if (!token) throw new Error("Bạn cần đăng nhập để đặt phòng");
+
+      const response = await axiosInstance.post(
+        `payments/create/${bookingId}`,
+        { percentage },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      console.log(err);
+      return rejectWithValue(
+        err.response?.data || { message: "Đặt phòng thất bại" }
+      );
+    }
+  }
+);
+
 const bookingSlice = createSlice({
   name: "booking",
   initialState: {
     booking: null,
     bookingLoading: false,
     bookingError: null,
+
+    payment: null,
+    paymentLoading: false,
+    paymentError: null,
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -68,6 +96,25 @@ const bookingSlice = createSlice({
       .addCase(createBooking.rejected, (state, action) => {
         state.bookingLoading = false;
         state.bookingError = action.payload?.message || "Đặt phòng thất bại";
+      })
+      .addCase(singlePayment.pending, (state) => {
+        state.paymentLoading = true;
+        state.paymentError = null;
+      })
+      .addCase(singlePayment.fulfilled, (state, action) => {
+        state.paymentLoading = false;
+        if (action.payload?.success === true) {
+          state.payment = action.payload.data;
+          state.paymentError = null;
+        } else {
+          state.payment = null;
+          state.paymentError = action.payload?.message || "Thanh toán thất bại";
+        }
+      })
+      .addCase(singlePayment.rejected, (state, action) => {
+        state.paymentLoading = false;
+        state.payment = null;
+        state.paymentError = action.payload?.message || "Thanh toán thất bại";
       });
   },
 });

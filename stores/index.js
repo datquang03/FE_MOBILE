@@ -9,6 +9,10 @@ import commentReducer from "../features/Comment/commentSlice";
 import promotionReducer from "../features/Promotion/promotionSlice";
 import bookingReducer from "../features/Booking/bookingSlice";
 import setDesignReducer from "../features/SetDesign/setDesignSlice";
+import notificationReducer from "../features/Notification/notificationSlice";
+import searchReducer from "../features/Search/searchSlice";
+import transactionReducer from "../features/Transaction/transactionSlice";
+import messageReducer from "../features/Message/messageSlice";
 
 const store = configureStore({
   reducer: {
@@ -21,7 +25,11 @@ const store = configureStore({
     comment: commentReducer,
     promotion: promotionReducer,
     booking: bookingReducer,
-    setDesign: setDesignReducer, // thêm reducer setDesign
+    setDesign: setDesignReducer,
+    notification: notificationReducer,
+    search: searchReducer,
+    transaction: transactionReducer,
+    message: messageReducer,
   },
 });
 

@@ -42,6 +42,7 @@ import BookingSuccessScreen from "../pages/Booking/BookingSuccessScreen";
 
 import BookingHistoryScreen from "../pages/History/BookingHistoryScreen";
 import BookingDetailScreen from "../pages/History/BookingDetailScreen";
+import ConvertedCustomSetDesign from "../pages/History/ConvertedCustomSetDesign";
 
 import FavoritesScreen from "../pages/Favorites/FavoritesScreen";
 import MessageListScreen from "../pages/Messages/MessageListScreen";
@@ -55,6 +56,7 @@ import PrivacyScreen from "../pages/Profile/PrivacyScreen";
 import NotificationSettingsScreen from "../pages/Profile/NotificationSettingsScreen";
 import SupportScreen from "../pages/Profile/SupportScreen";
 import SecurityScreen from "../pages/Profile/SecurityScreen";
+import EquipmentDetailScreen from "../pages/Equipment/EquipmentDetailScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -138,6 +140,7 @@ export default function AppNavigator() {
         <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
 
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+        <Stack.Screen name="ConvertedCustomSetDesign" component={ConvertedCustomSetDesign} />
         <Stack.Screen name="Favorites" component={FavoritesScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
@@ -148,6 +151,7 @@ export default function AppNavigator() {
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="Security" component={SecurityScreen} />
+        <Stack.Screen name="EquipmentDetail" component={EquipmentDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

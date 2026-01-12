@@ -10,51 +10,88 @@ import {
   Modal,
   Dimensions,
   FlatList,
+  Animated,
+  Easing,
+  Pressable,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import HeaderBar from "../../components/ui/HeaderBar";
 import SetDesignDetailSkeleton from "../../components/skeletons/SetDesignDetailSkeleton";
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
+import { COLORS, RADIUS, SPACING } from "../../constants/theme";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
+  Dimensions.get("window");
 
 export default function SetDesignDetailScreen({ route, navigation }) {
   const { item } = route.params || {};
   const [loading, setLoading] = useState(true);
-
   const [sliderIndex, setSliderIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  const sliderRef = useRef();
-  const autoPlayTimer = useRef();
+  const sliderRef = useRef(null);
+  const autoPlayTimer = useRef(null);
 
-  /* ================= FAKE LOADING ================= */
+  /* ===== MODAL ANIMATION ===== */
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+
+  useEffect(() => {
+    if (showBookingModal) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.exp),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.92);
+    }
+  }, [showBookingModal]);
+
+  /* ===== FAKE LOADING ===== */
   useEffect(() => {
     if (item) {
-      const t = setTimeout(() => setLoading(false), 500);
+      const t = setTimeout(() => setLoading(false), 400);
       return () => clearTimeout(t);
     }
   }, [item]);
 
-  /* ================= AUTOPLAY SLIDER ================= */
+  /* ===== AUTOPLAY SLIDER ===== */
   useEffect(() => {
     if (!item?.images?.length || showImageModal) return;
-    autoPlayTimer.current && clearInterval(autoPlayTimer.current);
+
+    autoPlayTimer.current &&
+      clearInterval(autoPlayTimer.current);
 
     autoPlayTimer.current = setInterval(() => {
       setSliderIndex((prev) => {
-        const next = prev + 1 >= item.images.length ? 0 : prev + 1;
-        sliderRef.current?.scrollToIndex({ index: next, animated: true });
+        const next =
+          prev + 1 >= item.images.length ? 0 : prev + 1;
+        sliderRef.current?.scrollToIndex({
+          index: next,
+          animated: true,
+        });
         return next;
       });
     }, 3500);
 
-    return () => clearInterval(autoPlayTimer.current);
+    return () =>
+      autoPlayTimer.current &&
+      clearInterval(autoPlayTimer.current);
   }, [item?.images, showImageModal]);
 
-  /* ================= IMAGE SLIDER ================= */
-  const renderImageSlider = () => (
+  /* ===== SLIDER ===== */
+  const renderSlider = () => (
     <View style={styles.sliderWrapper}>
       <FlatList
         ref={sliderRef}
@@ -62,11 +99,14 @@ export default function SetDesignDetailScreen({ route, navigation }) {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, idx) => idx.toString()}
-        onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-          setSliderIndex(idx);
-        }}
+        keyExtractor={(_, i) => i.toString()}
+        onMomentumScrollEnd={(e) =>
+          setSliderIndex(
+            Math.round(
+              e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+            )
+          )
+        }
         renderItem={({ item: img, index }) => (
           <TouchableOpacity
             activeOpacity={0.9}
@@ -94,10 +134,13 @@ export default function SetDesignDetailScreen({ route, navigation }) {
     </View>
   );
 
-  /* ================= IMAGE MODAL ================= */
+  /* ===== IMAGE FULLSCREEN ===== */
   const renderImageModal = () => (
-    <Modal visible={showImageModal} transparent animationType="fade">
-      <View style={styles.modalBg}>
+    <Modal visible={showImageModal} transparent>
+      <Pressable
+        style={styles.imageModalBg}
+        onPress={() => setShowImageModal(false)}
+      >
         <FlatList
           data={item?.images || []}
           horizontal
@@ -109,272 +152,240 @@ export default function SetDesignDetailScreen({ route, navigation }) {
             index: i,
           })}
           renderItem={({ item }) => (
-            <Image source={{ uri: item }} style={styles.fullImage} />
+            <Image
+              source={{ uri: item }}
+              style={styles.fullImage}
+            />
           )}
         />
-
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => setShowImageModal(false)}
-        >
-          <Text style={{ color: "#fff", fontSize: 18 }}>Đóng</Text>
-        </TouchableOpacity>
-      </View>
+      </Pressable>
     </Modal>
   );
 
-  /* ================= RENDER ================= */
   return (
-    <SafeAreaView style={[styles.safe, { paddingTop: 32 }]}>
-      {/* ===== HEADER GIỐNG STUDIO ===== */}
-      <HeaderBar
-        title="Chi tiết"
-        onBack={() => navigation.goBack?.()}
-        rightIcon="more-vertical"
-        onRightPress={() => setShowMenu((v) => !v)}
-      />
-
-      {/* ===== DROPDOWN MENU ===== */}
-      {showMenu && (
-        <>
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={() => setShowMenu(false)}
-          />
-          <View style={styles.dropdownMenu}>
+    <SafeAreaView style={styles.safe}>
+      <View style={{ marginTop: 32 }}>
+        <HeaderBar
+          title="Chi tiết"
+          onBack={() => navigation.goBack?.()}
+          rightIcon="more-vertical"
+          onRightPress={() => setShowMenu((v) => !v)}
+        />
+        {showMenu && (
+          <>
             <TouchableOpacity
-              style={styles.menuItem}
+              style={styles.overlay}
+              activeOpacity={1}
               onPress={() => setShowMenu(false)}
-            >
-              <Feather
-                name="alert-circle"
-                size={20}
-                color="#E53935"
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.menuItemText}>Báo cáo</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+            />
+            <View style={styles.dropdownMenu}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false); /* TODO: handle report */
+                }}
+              >
+                <Text style={styles.menuItemText}>Báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xxl }}>
+      <ScrollView>
         {loading ? (
           <SetDesignDetailSkeleton />
         ) : (
           <>
-            {item?.images?.length > 0 && renderImageSlider()}
+            {renderSlider()}
             {renderImageModal()}
 
             <View style={styles.sheet}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>{item.name}</Text>
-                <TouchableOpacity>
-                  <Feather
-                    name="heart"
-                    size={22}
-                    color={COLORS.textMuted}
-                    style={{ opacity: 0.7 }}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.infoRowGroup}>
-                <View style={styles.infoRow}>
-                  <Feather
-                    name="dollar-sign"
-                    size={16}
-                    color={COLORS.brandBlue}
-                  />
-                  <Text style={styles.infoLabel}>Giá:</Text>
-                  <Text style={styles.price}>
-                    {item.price?.toLocaleString()}đ
-                  </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Feather name="tag" size={16} color={COLORS.textMuted} />
-                  <Text style={styles.infoLabel}>Danh mục:</Text>
-                  <Text style={styles.infoValue}>{item.category}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Feather name="calendar" size={16} color={COLORS.textMuted} />
-                  <Text style={styles.infoLabel}>Ngày tạo:</Text>
-                  <Text style={styles.infoValue}>
-                    {new Date(item.createdAt).toLocaleDateString("vi-VN")}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.description}>{item.description}</Text>
+              <Text style={styles.title}>{item.name}</Text>
+              <Text style={styles.description}>
+                {item.description}
+              </Text>
             </View>
           </>
         )}
       </ScrollView>
 
-      {/* ===== BOTTOM BAR ===== */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => setShowBookingModal(true)}
+        >
           <Text style={styles.primaryBtnText}>Đặt ngay</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ===== BOOKING MODAL – NO DIM, NO GRADIENT ===== */}
+      <Modal
+        visible={showBookingModal}
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.modalRoot}
+          onPress={() => setShowBookingModal(false)}
+        >
+          <Image
+            source={{ uri: item?.images?.[0] }}
+            style={styles.modalBg}
+          />
+
+          <Pressable>
+            <Animated.View
+              style={[
+                styles.bookingModalBox,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
+              <Text style={styles.bookingModalTitle}>
+                Chọn cách đặt Set Design
+              </Text>
+
+              <View style={styles.bookingModalBtnRow}>
+                <TouchableOpacity
+                  style={styles.bookingModalBtnLeft}
+                >
+                  <Text style={styles.bookingModalBtnText}>
+                    Đặt ngay trên app
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.bookingModalBtnRight}
+                >
+                  <Text
+                    style={[
+                      styles.bookingModalBtnText,
+                      { color: COLORS.brandBlue },
+                    ]}
+                  >
+                    Liên hệ tư vấn
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-/* ================= STYLES ================= */
+/* ===== STYLES ===== */
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  safe: { flex: 1, backgroundColor: COLORS.background },
 
-  hero: {
-    width: SCREEN_WIDTH,
-    height: 280,
-    backgroundColor: COLORS.border,
-  },
-
-  sliderWrapper: {
-    width: SCREEN_WIDTH,
-    height: 280,
-  },
-
+  hero: { width: SCREEN_WIDTH, height: 280 },
+  sliderWrapper: { height: 280 },
   sliderIndicatorWrap: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: -24,
   },
-
   sliderDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.textMuted,
+    backgroundColor: "#aaa",
     marginHorizontal: 3,
   },
-
   sliderDotActive: {
+    width: 18,
     backgroundColor: COLORS.brandBlue,
-    width: 16,
   },
 
-  modalBg: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.95)",
-  },
-
+  imageModalBg: { flex: 1, backgroundColor: "#000" },
   fullImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     resizeMode: "contain",
   },
 
-  closeBtn: {
-    position: "absolute",
-    top: 40,
-    right: 24,
-    padding: 10,
-  },
-
   sheet: {
-    marginTop: -40,
+    marginTop: -32,
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
-    backgroundColor: COLORS.surface,
     padding: SPACING.xl,
   },
 
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  title: {
-    fontSize: TYPOGRAPHY.headingM,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
-
-  infoRowGroup: {
-    marginTop: 8,
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-
-  infoLabel: {
-    marginLeft: 4,
-    marginRight: 2,
-    color: COLORS.textMuted,
-    fontWeight: "600",
-  },
-
-  infoValue: {
-    color: COLORS.textDark,
-    fontWeight: "600",
-  },
-
-  price: {
-    marginLeft: 4,
-    color: COLORS.brandBlue,
-    fontWeight: "700",
-  },
-
+  title: { fontSize: 22, fontWeight: "700" },
   description: {
-    marginTop: 14,
+    marginTop: 12,
     fontSize: 15,
     lineHeight: 22,
-    color: COLORS.textDark,
+    color: "#555",
   },
 
-  bottomBar: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderTopWidth: 1,
-    borderColor: COLORS.border,
-  },
-
+  bottomBar: { padding: 16 },
   primaryBtn: {
     backgroundColor: COLORS.brandBlue,
-    borderRadius: RADIUS.xl,
+    borderRadius: 20,
     paddingVertical: 16,
     alignItems: "center",
   },
-
   primaryBtnText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
   },
 
-  dropdownMenu: {
-    position: "absolute",
-    top: 56,
-    right: 18,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 100,
-  },
-
-  menuItem: {
-    flexDirection: "row",
+  /* ===== MODAL ===== */
+  modalRoot: {
+    flex: 1,
+    backgroundColor: "transparent",
+    justifyContent: "center",
     alignItems: "center",
-    padding: 14,
+  },
+  modalBg: {
+    ...StyleSheet.absoluteFillObject,
+    resizeMode: "cover",
   },
 
-  menuItemText: {
-    color: "#E53935",
+  bookingModalBox: {
+    width: 320,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 26,
+    elevation: 12,
+  },
+  bookingModalTitle: {
+    fontSize: 20,
     fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  bookingModalBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  bookingModalBtnLeft: {
+    flex: 1,
+    backgroundColor: COLORS.brandBlue,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  bookingModalBtnRight: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.brandBlue,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  bookingModalBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
   },
 
   overlay: {
@@ -383,7 +394,33 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.01)",
+    backgroundColor: "transparent",
     zIndex: 99,
+  },
+  dropdownMenu: {
+    position: "absolute",
+    top: 56,
+    right: 18,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+    minWidth: 140,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: "#E53935",
+    fontWeight: "bold",
   },
 });

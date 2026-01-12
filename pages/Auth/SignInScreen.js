@@ -9,7 +9,6 @@ import {
   Platform,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import HeaderBar from "../../components/ui/HeaderBar";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
 import { login, loginGoogle } from "../../features/Authentication/authSlice";
@@ -100,10 +99,7 @@ export default function SignInScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={{ paddingTop: 32, backgroundColor: COLORS.surface }}>
-        <HeaderBar title="" onBack={() => navigation.goBack?.() || {}} />
-      </View>
-      <View style={[styles.container, { paddingTop: 16 }]}>
+      <View style={[styles.container, { paddingTop: 32, minHeight: '60%' }]}>
         <Text style={styles.title}>Đăng nhập</Text>
         <Text style={styles.subtitle}>
           Chào mừng trở lại! Hãy đăng nhập để tiếp tục.

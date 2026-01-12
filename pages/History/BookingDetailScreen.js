@@ -1,53 +1,109 @@
-import React from "react";
-import { SafeAreaView, View, Text, StyleSheet, Image } from "react-native";
+import React, { useEffect, useState } from "react";
+import { SafeAreaView, View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { getTransactionById } from "../../features/Transaction/transactionSlice";
 import HeaderBar from "../../components/ui/HeaderBar";
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/theme";
 import PrimaryButton from "../../components/ui/PrimaryButton";
+import TransactionDetailSkeletonLoading from "../../components/skeletons/TransactionDetailSkeletonLoading";
 
 export default function BookingDetailScreen({ route, navigation }) {
-  const { item, type } = route.params || {};
-  const isEquipment = type === "equip";
+  const dispatch = useDispatch();
+  const { item } = route.params || {};
+  const transactionDetail = useSelector((state) => state.transaction.transactionDetail);
+  const loading = useSelector((state) => state.transaction.loading);
+  const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    if (item && item.id) {
+      dispatch(getTransactionById(item.id));
+    }
+  }, [item, dispatch]);
+
+  if (loading || !transactionDetail) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ marginTop: 32 }}>
+          <HeaderBar
+            title="Lịch sử"
+            onBack={() => navigation.goBack?.()}
+            rightIcon="more-vertical"
+            onRightPress={() => setShowMenu((v) => !v)}
+          />
+          {showMenu && (
+            <>
+              <TouchableOpacity
+                style={[styles.overlay, { zIndex: 29, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
+                activeOpacity={1}
+                onPress={() => setShowMenu(false)}
+              />
+              <View style={styles.dropdownMenu}>
+                <TouchableOpacity style={styles.menuItem} onPress={() => setShowMenu(false)}>
+                  <Text style={styles.menuItemText}>Báo cáo</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+        <TransactionDetailSkeletonLoading />
+      </SafeAreaView>
+    );
+  }
+
+  // Map dữ liệu đẹp từ transactionDetail
+  const studio = transactionDetail.bookingId?.scheduleId?.studioId;
+  const user = transactionDetail.bookingId?.userId;
+  const schedule = transactionDetail.bookingId?.scheduleId;
 
   return (
     <SafeAreaView style={styles.safe}>
-      <HeaderBar
-        title="Lịch sử"
-        onBack={() => navigation.goBack?.()}
-        rightIcon="more-vertical"
-      />
+      <View style={{ marginTop: 32 }}>
+        <HeaderBar
+          title="Lịch sử"
+          onBack={() => navigation.goBack?.()}
+          rightIcon="more-vertical"
+          onRightPress={() => setShowMenu((v) => !v)}
+        />
+        {showMenu && (
+          <>
+            <TouchableOpacity
+              style={[styles.overlay, { zIndex: 29, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
+              activeOpacity={1}
+              onPress={() => setShowMenu(false)}
+            />
+            <View style={styles.dropdownMenu}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => setShowMenu(false)}>
+                <Text style={styles.menuItemText}>Báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
       <View style={styles.card}>
         <View style={styles.row}>
-          <Image source={{ uri: item.image }} style={styles.thumbnail} />
+          <Image source={{ uri: studio?.images?.[0] }} style={styles.thumbnail} />
           <View style={{ flex: 1, marginLeft: SPACING.md }}>
-            <Text style={styles.title}>{item.name}</Text>
-            <Text style={styles.meta}>{item.size || "6 tiếng"}</Text>
-            <Text style={styles.price}>{item.price}</Text>
-          </View>
-          <View style={styles.rating}>
-            <Text style={styles.ratingText}>{item.rating || "4.5"}</Text>
+            <Text style={styles.title}>{studio?.name}</Text>
+            <Text style={styles.meta}>{studio?.location}</Text>
+            <Text style={styles.price}>{transactionDetail.amount?.toLocaleString()}đ</Text>
           </View>
         </View>
-        <Text style={styles.sectionLabel}>
-          {isEquipment ? "Dụng cụ của bạn" : "Phòng của bạn"}
-        </Text>
-        {!isEquipment ? (
-          <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapText}>S Cộng Studio</Text>
-          </View>
-        ) : null}
+        <Text style={styles.sectionLabel}>Thông tin giao dịch</Text>
         <View style={styles.infoBlock}>
-          <Info line1="Ngày" line2="15 - 16 Tháng 9 2025" />
-          <Info line1={isEquipment ? "Thời gian" : "Khách hàng"} line2={isEquipment ? "6 tiếng" : "10 người/phòng"} />
-          <Info line1="Số điện thoại" line2="0865930428" />
+          <Info line1="Khách hàng" line2={user?.fullName || user?.username} />
+          <Info line1="Số điện thoại" line2={user?.phone} />
+          <Info line1="Email" line2={user?.email} />
+          <Info line1="Ngày đặt" line2={schedule?.startTime ? new Date(schedule.startTime).toLocaleDateString("vi-VN") : ""} />
+          <Info line1="Giờ" line2={schedule?.startTime ? `${new Date(schedule.startTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - ${new Date(schedule.endTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}` : ""} />
+          <Info line1="Trạng thái" line2={transactionDetail.status} />
+          <Info line1="Mã thanh toán" line2={transactionDetail.paymentCode} />
         </View>
-        {!isEquipment ? (
-          <View style={styles.barcode}>
-            <Text style={styles.barcodeText}>06158310-5427-471d-af1f-bd9029b</Text>
-          </View>
-        ) : null}
+        <View style={styles.barcode}>
+          <Text style={styles.barcodeText}>{transactionDetail.transactionId}</Text>
+        </View>
       </View>
       <View style={styles.footer}>
-        <PrimaryButton label="Tiếp tục" onPress={() => navigation.goBack()} />
+        <PrimaryButton label="Quay lại" onPress={() => navigation.goBack()} />
       </View>
     </SafeAreaView>
   );
@@ -158,6 +214,41 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: SPACING.lg,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent",
+    zIndex: 99,
+  },
+  dropdownMenu: {
+    position: "absolute",
+    top: 56,
+    right: 18,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+    minWidth: 140,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: "#E53935",
+    fontWeight: "bold",
   },
 });
 

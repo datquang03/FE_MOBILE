@@ -6,7 +6,7 @@ export const getSchedules = createAsyncThunk(
   "schedule/getSchedules",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get("/schedules");
+      const res = await axiosInstance.get("/studios/schedule");
       return res.data.data; // backend trả về array hoặc object
     } catch (err) {
       return rejectWithValue(err.response?.data || { message: "Không thể lấy danh sách lịch" });

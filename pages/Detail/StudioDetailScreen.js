@@ -30,6 +30,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { getCurrentUser } from "../../features/Authentication/authSlice";
 import StudioDetailSkeleton from "../../components/skeletons/StudioDetailSkeleton";
+import CommentSkeleton from "../../components/skeletons/CommentSkeleton";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -57,6 +58,7 @@ export default function StudioDetailScreen({ route, navigation }) {
   const [newComment, setNewComment] = useState("");
   const sliderRef = useRef();
   const autoPlayTimer = useRef();
+  const [openReplies, setOpenReplies] = useState({});
   // Autoplay slider
   useEffect(() => {
     if (!studio?.images?.length || showImageModal) return;
@@ -337,6 +339,12 @@ export default function StudioDetailScreen({ route, navigation }) {
       </View>
     </Modal>
   );
+
+  // Loading spinner cho like/unlike comment (ẩn spinner, chỉ hiệu ứng tim)
+  function LikeLoadingSpinner() {
+    return null;
+  }
+
   const renderComments = () => {
     const startReply = (commentId) => {
       setReplyingTo(commentId);
@@ -347,6 +355,10 @@ export default function StudioDetailScreen({ route, navigation }) {
     const cancelReply = () => {
       setReplyingTo(null);
       setReplyContent("");
+    };
+
+    const toggleReplies = (commentId) => {
+      setOpenReplies((prev) => ({ ...prev, [commentId]: !prev[commentId] }));
     };
 
     if (commentLoading && comments.length === 0) {
@@ -436,41 +448,46 @@ export default function StudioDetailScreen({ route, navigation }) {
 
                 <View style={styles.commentFooter}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={styles.actionButtonHeart}
                     onPress={() => handleToggleLike(cmt)}
+                    disabled={commentLoading && optimisticLikes[cmt._id] !== undefined}
                   >
-                    <Feather
-                      name="heart"
-                      size={16}
-                      color={isCommentLiked(cmt) ? "#E53935" : COLORS.textMuted}
-                      style={isCommentLiked(cmt) ? styles.filledHeart : null}
-                    />
+                    <View style={styles.heartIconWrap}>
+                      <Feather
+                        name="heart"
+                        size={16}
+                        color={isCommentLiked(cmt) ? COLORS.danger : COLORS.textMuted}
+                        style={isCommentLiked(cmt) ? styles.filledHeart : null}
+                      />
+                    </View>
                     <Text
                       style={[
                         styles.commentAction,
-                        isCommentLiked(cmt) && styles.likedText,
+                        isCommentLiked(cmt)
+                          ? { color: COLORS.danger, fontWeight: 'bold', marginLeft: 2 }
+                          : { color: COLORS.brandBlue, fontWeight: 'bold', marginLeft: 2 },
                       ]}
                     >
                       {cmt.likes?.length || 0}
                     </Text>
                   </TouchableOpacity>
-
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={styles.actionButtonReply}
                     onPress={() => startReply(cmt._id)}
                   >
                     <Feather
                       name="message-circle"
-                      size={16}
-                      color={COLORS.textMuted}
+                      size={18}
+                      color={COLORS.brandBlue}
                     />
-                    <Text style={styles.commentAction}>Trả lời</Text>
+                    <Text style={styles.commentActionReply}>Trả lời</Text>
                   </TouchableOpacity>
-
                   {cmt.replies?.length > 0 && (
-                    <Text style={styles.commentAction}>
-                      {cmt.replies.length} trả lời
-                    </Text>
+                    <TouchableOpacity onPress={() => toggleReplies(cmt._id)}>
+                      <Text style={[styles.commentAction, { color: COLORS.brandBlue, fontWeight: 'bold', marginLeft: 8 }]}> 
+                        {cmt.replies.length} trả lời
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
 
@@ -506,7 +523,8 @@ export default function StudioDetailScreen({ route, navigation }) {
                     </View>
                   </View>
                 )}
-                {cmt.replies?.length > 0 && (
+                {/* Replies: ẩn mặc định, chỉ mở khi bấm */}
+                {cmt.replies?.length > 0 && openReplies[cmt._id] && (
                   <View style={styles.repliesContainer}>
                     {cmt.replies.map((reply) => (
                       <View key={reply._id} style={styles.replyItem}>
@@ -532,39 +550,40 @@ export default function StudioDetailScreen({ route, navigation }) {
                           <Text style={styles.replyContent}>
                             {reply.content}
                           </Text>
-
-                          {/* Updated footer with like button */}
                           <View style={styles.replyFooter}>
-                            <TouchableOpacity
-                              style={styles.actionButton}
-                              onPress={() =>
-                                handleToggleLikeReply(cmt._id, reply)
-                              }
-                            >
-                              <Feather
-                                name="heart"
-                                size={16}
-                                color={
-                                  isReplyLiked(reply)
-                                    ? "#E53935"
-                                    : COLORS.textMuted
-                                }
-                                style={
-                                  isReplyLiked(reply)
-                                    ? styles.filledHeart
-                                    : null
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.commentAction,
-                                  isReplyLiked(reply) && styles.likedText,
-                                ]}
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <TouchableOpacity
+                                style={styles.actionButtonHeart}
+                                onPress={() => handleToggleLikeReply(cmt._id, reply)}
                               >
-                                {getReplyLikeCount(reply)}
-                              </Text>
-                            </TouchableOpacity>
-
+                                <Feather
+                                  name="heart"
+                                  size={16}
+                                  color={isReplyLiked(reply) ? COLORS.danger : COLORS.textMuted}
+                                  style={isReplyLiked(reply) ? styles.filledHeart : null}
+                                />
+                                <Text
+                                  style={[
+                                    styles.commentAction,
+                                    isReplyLiked(reply) && { color: COLORS.danger, fontWeight: "bold", marginLeft: 2 },
+                                    !isReplyLiked(reply) && { color: COLORS.brandBlue, fontWeight: "bold", marginLeft: 2 },
+                                  ]}
+                                >
+                                  {getReplyLikeCount(reply)}
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.actionButtonReply}
+                                onPress={() => startReply(cmt._id)}
+                              >
+                                <Feather
+                                  name="message-circle"
+                                  size={16}
+                                  color={COLORS.brandBlue}
+                                />
+                                <Text style={styles.commentActionReply}>Trả lời</Text>
+                              </TouchableOpacity>
+                            </View>
                             <Text style={styles.replyTime}>
                               {new Date(reply.createdAt).toLocaleDateString(
                                 "vi-VN"
@@ -584,7 +603,45 @@ export default function StudioDetailScreen({ route, navigation }) {
     );
   };
 
-  if (loading) return <FullScreenLoading />;
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, { paddingTop: 32 }]}>
+        <HeaderBar
+          title="Chi tiết"
+          onBack={() => navigation.goBack?.()}
+          rightIcon="more-vertical"
+          onRightPress={() => setShowMenu((v) => !v)}
+        />
+        {/* Dropdown menu khi bấm ba chấm */}
+        {showMenu && (
+          <>
+            <TouchableOpacity
+              style={styles.overlay}
+              activeOpacity={1}
+              onPress={() => setShowMenu(false)}
+            />
+            <View style={styles.dropdownMenu}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false); /* TODO: handle report */
+                }}
+              >
+                <Feather
+                  name="alert-circle"
+                  size={20}
+                  color="#E53935"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.menuItemText}>Báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+        <StudioDetailSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   if (error)
     return (
@@ -630,7 +687,14 @@ export default function StudioDetailScreen({ route, navigation }) {
       {loading && <FullScreenLoading />}
       <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xxl }}>
         {loading ? (
-          <StudioDetailSkeleton />
+          <>
+            {/* Skeleton cho slider */}
+            <StudioDetailSkeleton />
+            {/* Skeleton cho comment */}
+            <View style={styles.sheet}>
+              <CommentSkeleton count={4} />
+            </View>
+          </>
         ) : error ? (
           <View style={{ padding: SPACING.xl }}>
             <Text style={{ color: "red" }}>
@@ -639,9 +703,57 @@ export default function StudioDetailScreen({ route, navigation }) {
           </View>
         ) : studio ? (
           <>
+            {/* Slider và modal ảnh */}
             {studio.images?.length > 0 && renderImageSlider()}
             {renderImageModal()}
 
+            {/* Thông tin studio */}
+            <View style={[styles.sheet, { marginBottom: 16, borderWidth: 1, borderColor: COLORS.border, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 }]}> 
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Image
+                  source={{ uri: studio.images?.[0] }}
+                  style={{ width: 80, height: 80, borderRadius: 16, marginRight: 16, backgroundColor: COLORS.border }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.title, { fontSize: 22 }]}>{studio.name}</Text>
+                  <Text style={[styles.location, { fontSize: 15 }]}>{studio.location}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Feather name="star" size={16} color={COLORS.brandGold} />
+                    <Text style={{ color: COLORS.brandGold, fontWeight: '700', marginLeft: 4, fontSize: 15 }}>
+                      {studio.avgRating?.toFixed(1) || 0}
+                    </Text>
+                    <Text style={{ color: COLORS.textMuted, marginLeft: 6, fontSize: 14 }}>
+                      ({studio.reviewCount} đánh giá)
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Text style={[styles.description, { marginTop: 0, color: COLORS.textDark, fontSize: 15 }]}>{studio.description}</Text>
+              <View style={[styles.infoRowGroup, { marginTop: 12 }]}> 
+                <View style={styles.infoRow}>
+                  <Feather name="maximize" size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+                  <Text style={styles.infoLabel}>Diện tích:</Text>
+                  <Text style={styles.infoValue}>{studio.area} m²</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Feather name="users" size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+                  <Text style={styles.infoLabel}>Sức chứa:</Text>
+                  <Text style={styles.infoValue}>{studio.capacity} người</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Feather name="dollar-sign" size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+                  <Text style={styles.infoLabel}>Giá/giờ:</Text>
+                  <Text style={styles.infoValue}>{studio.basePricePerHour?.toLocaleString()}đ</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Feather name="activity" size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+                  <Text style={styles.infoLabel}>Trạng thái:</Text>
+                  <Text style={[styles.infoValue, { color: studio.status === 'active' ? COLORS.brandBlue : COLORS.danger }]}>{studio.status === 'active' ? 'Đang hoạt động' : 'Tạm dừng'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Bình luận */}
             <View style={styles.sheet}>{renderComments()}</View>
           </>
         ) : null}
@@ -889,8 +1001,17 @@ const styles = StyleSheet.create({
   commentFooter: {
     flexDirection: "row",
     gap: 16,
+    alignItems: 'center',
   },
-
+  actionButtonHeart: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    backgroundColor: 'transparent', // Không có nền mặc định
+  },
   commentAction: {
     fontSize: 13,
     color: COLORS.textMuted,
@@ -1040,5 +1161,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "rgba(0,0,0,0.01)",
     zIndex: 99,
+  },
+  actionButtonReply: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  commentActionReply: {
+    fontSize: 13,
+    color: COLORS.brandBlue,
+  },
+  heartIconWrap: {
+    backgroundColor: 'transparent', // Không có nền mặc định
+    borderRadius: 16,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
+  },
+  filledHeart: {
+    // Hiệu ứng scale khi like
+    transform: [{ scale: 1.1 }],
   },
 });
