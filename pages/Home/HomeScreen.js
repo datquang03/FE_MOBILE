@@ -193,7 +193,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         ) : (
           <FlatList
-            data={setDesigns}
+            data={setDesigns.filter(item => !item.isConvertedFromCustomRequest)}
             keyExtractor={(item) => item._id}
             horizontal
             showsHorizontalScrollIndicator={false}

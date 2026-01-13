@@ -159,6 +159,7 @@ const styles = StyleSheet.create({
   /* container để hạ header */
   container: {
     marginTop: 32,
+    flex: 1,
   },
 
   summary: {

@@ -57,6 +57,7 @@ import NotificationSettingsScreen from "../pages/Profile/NotificationSettingsScr
 import SupportScreen from "../pages/Profile/SupportScreen";
 import SecurityScreen from "../pages/Profile/SecurityScreen";
 import EquipmentDetailScreen from "../pages/Equipment/EquipmentDetailScreen";
+import WebViewScreen from "../pages/WebPayment/WebViewScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -152,6 +153,8 @@ export default function AppNavigator() {
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="Security" component={SecurityScreen} />
         <Stack.Screen name="EquipmentDetail" component={EquipmentDetailScreen} />
+        <Stack.Screen name="BookingStudioDetail" component={require('../pages/History/BookingStudioDetail').default} />
+        <Stack.Screen name="WebViewScreen" component={WebViewScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

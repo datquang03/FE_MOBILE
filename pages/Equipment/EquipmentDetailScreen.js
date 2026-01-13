@@ -26,8 +26,6 @@ export default function EquipmentDetailScreen({ route, navigation }) {
         <HeaderBar
           title="Chi tiết dụng cụ"
           onBack={() => navigation.goBack?.()}
-          rightIcon="more-vertical"
-          onRightPress={() => setShowMenu((v) => !v)}
         />
       </View>
       {showMenu && (

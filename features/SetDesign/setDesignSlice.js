@@ -52,6 +52,21 @@ export const getOwnCustomSetDesignById = createAsyncThunk(
   }
 );
 
+/**
+ * Tạo custom set design request mới
+ */
+export const createCustomSetDesignRequest = createAsyncThunk(
+  "setDesign/createCustomSetDesignRequest",
+  async (body, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/set-designs/custom-request", body);
+      return res.data; // { success, data }
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 /* =========================
    SLICE
 ========================= */
@@ -98,6 +113,21 @@ const setDesignSlice = createSlice({
         state.pagination = action.payload.pagination || null;
       })
       .addCase(getOwnCustomSetDesign.rejected, (state, action) => {
+        state.customLoading = false;
+        state.customError = action.payload;
+      })
+
+      /* ================= CREATE CUSTOM ================= */
+      .addCase(createCustomSetDesignRequest.pending, (state) => {
+        state.customLoading = true;
+        state.customError = null;
+      })
+      .addCase(createCustomSetDesignRequest.fulfilled, (state, action) => {
+        state.customLoading = false;
+        // Có thể push vào customSetDesigns nếu muốn cập nhật ngay
+        // state.customSetDesigns.unshift(action.payload.data);
+      })
+      .addCase(createCustomSetDesignRequest.rejected, (state, action) => {
         state.customLoading = false;
         state.customError = action.payload;
       });

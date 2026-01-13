@@ -54,6 +54,8 @@ export default function BookingDetailScreen({ route, navigation }) {
   const studio = transactionDetail.bookingId?.scheduleId?.studioId;
   const user = transactionDetail.bookingId?.userId;
   const schedule = transactionDetail.bookingId?.scheduleId;
+  const gateway = transactionDetail.gatewayResponse || {};
+  const webhook = gateway.webhookData || {};
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -88,15 +90,17 @@ export default function BookingDetailScreen({ route, navigation }) {
             <Text style={styles.price}>{transactionDetail.amount?.toLocaleString()}đ</Text>
           </View>
         </View>
-        <Text style={styles.sectionLabel}>Thông tin giao dịch</Text>
         <View style={styles.infoBlock}>
-          <Info line1="Khách hàng" line2={user?.fullName || user?.username} />
-          <Info line1="Số điện thoại" line2={user?.phone} />
-          <Info line1="Email" line2={user?.email} />
-          <Info line1="Ngày đặt" line2={schedule?.startTime ? new Date(schedule.startTime).toLocaleDateString("vi-VN") : ""} />
-          <Info line1="Giờ" line2={schedule?.startTime ? `${new Date(schedule.startTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - ${new Date(schedule.endTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}` : ""} />
-          <Info line1="Trạng thái" line2={transactionDetail.status} />
-          <Info line1="Mã thanh toán" line2={transactionDetail.paymentCode} />
+          <Info line1="Số tiền đã thanh toán" line2={webhook.amount?.toLocaleString() + 'đ'} />
+          <Info line1="Thời gian giao dịch" line2={webhook.transactionDateTime || '-'} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mô tả giao dịch</Text>
+            <Text style={[styles.infoValue, { flex: 1, textAlign: 'right', flexWrap: 'wrap' }]}>{webhook.description}</Text>
+          </View>
+          <Info line1="Số tài khoản" line2={webhook.accountNumber} />
+          <Info line1="Reference" line2={webhook.reference} />
+          <Info line1="Loại tiền" line2={webhook.currency} />
+          <Info line1="Trạng thái" line2={webhook.desc} />
         </View>
         <View style={styles.barcode}>
           <Text style={styles.barcodeText}>{transactionDetail.transactionId}</Text>

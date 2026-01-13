@@ -201,10 +201,20 @@ export default function SetDesignDetailScreen({ route, navigation }) {
             {renderImageModal()}
 
             <View style={styles.sheet}>
-              <Text style={styles.title}>{item.name}</Text>
-              <Text style={styles.description}>
-                {item.description}
-              </Text>
+              <Text style={[styles.title, { color: '#6C47FF', marginBottom: 8 }]}>{item.name}</Text>
+              <Text style={[styles.price, { fontSize: 20, fontWeight: 'bold', color: '#6C47FF', marginBottom: 8 }]}>Giá: <Text style={{ color: '#222' }}>{item.price?.toLocaleString()}đ</Text></Text>
+              <Text style={[styles.category, { marginBottom: 8 }]}>Danh mục: <Text style={{ color: '#222', fontWeight: 'normal' }}>{item.category === 'corporate' ? 'Doanh nghiệp' : item.category === 'wedding' ? 'Đám cưới' : item.category === 'family' ? 'Gia đình' : item.category === 'graduation' ? 'Tốt nghiệp' : item.category || '---'}</Text></Text>
+              <Text style={[styles.status, { marginBottom: 8, color: item.isActive ? '#4CAF50' : '#F44336', backgroundColor: item.isActive ? '#E8F5E9' : '#FDECEA', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' }]}>Trạng thái: <Text style={{ color: '#222', fontWeight: 'normal' }}>{item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Text></Text>
+              <Text style={[styles.meta, { marginBottom: 8 }]}>Ngày tạo: <Text style={{ color: '#222', fontWeight: 'normal' }}>{new Date(item.createdAt).toLocaleString('vi-VN')}</Text></Text>
+              <Text style={[styles.meta, { marginBottom: 8 }]}>Ngày cập nhật: <Text style={{ color: '#222', fontWeight: 'normal' }}>{new Date(item.updatedAt).toLocaleString('vi-VN')}</Text></Text>
+              <Text style={[styles.description, { marginBottom: 8 }]}>{item.description}</Text>
+              {item.tags && item.tags.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
+                  {item.tags.map((tag, idx) => (
+                    <Text key={idx} style={{ backgroundColor: '#F5F0FF', color: '#6C47FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginRight: 6, marginBottom: 4, fontSize: 13 }}>{tag}</Text>
+                  ))}
+                </View>
+              )}
             </View>
           </>
         )}
@@ -260,6 +270,10 @@ export default function SetDesignDetailScreen({ route, navigation }) {
 
                 <TouchableOpacity
                   style={styles.bookingModalBtnRight}
+                  onPress={() => {
+                    setShowBookingModal(false);
+                    navigation.navigate("SetDesignForm");
+                  }}
                 >
                   <Text
                     style={[

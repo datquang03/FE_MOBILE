@@ -346,6 +346,10 @@ export default function StudioDetailScreen({ route, navigation }) {
   }
 
   const renderComments = () => {
+    if (commentLoading && comments.length === 0) {
+      return <CommentSkeleton count={4} />;
+    }
+
     const startReply = (commentId) => {
       setReplyingTo(commentId);
       setReplyContent("");
@@ -412,12 +416,22 @@ export default function StudioDetailScreen({ route, navigation }) {
             </View>
           </View>
         ) : (
-          <Text style={styles.loginToCommentText}>Đăng nhập để bình luận</Text>
+          <View style={{ alignItems: 'center', marginVertical: 20 }}>
+            <Feather name="user" size={32} color={COLORS.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={{ color: COLORS.textMuted, fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Bạn cần đăng nhập để bình luận</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('SignIn')} style={{ backgroundColor: COLORS.brandBlue, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 8, marginTop: 6 }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Đăng nhập</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Existing comments list */}
         {comments.length === 0 ? (
-          <Text style={styles.commentMuted}>Chưa có bình luận</Text>
+          <View style={{ alignItems: 'center', marginVertical: 24 }}>
+            <Feather name="message-circle" size={32} color={COLORS.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={{ color: COLORS.textMuted, fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Chưa có bình luận nào</Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>Hãy là người đầu tiên bình luận về studio này!</Text>
+          </View>
         ) : (
           comments.map((cmt) => (
             <View key={cmt._id} style={styles.commentItem}>

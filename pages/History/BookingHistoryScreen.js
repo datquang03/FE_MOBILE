@@ -11,6 +11,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { getMyBookings } from "../../features/Booking/bookingSlice";
 import { getMyTransaction } from "../../features/Transaction/transactionSlice";
 import { getOwnCustomSetDesign } from "../../features/SetDesign/setDesignSlice";
 
@@ -41,8 +42,10 @@ export default function BookingHistoryScreen({ navigation }) {
     useCallback(() => {
       // Luôn gọi hooks ở cùng vị trí, không gọi trong if/else
       if (tab === "rooms") {
-        dispatch(getMyTransaction({ page: 1, limit: 10 }));
+        dispatch(getMyBookings({ page: 1, limit: 10 }));
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      } else if (tab === "transactions") {
+        dispatch(getMyTransaction({ page: 1, limit: 10 }));
       } else if (tab === "setdesigncustom") {
         dispatch(getOwnCustomSetDesign({ page: 1, limit: 10 }));
       }
@@ -74,39 +77,48 @@ export default function BookingHistoryScreen({ navigation }) {
   /* =========================
         MAP ROOMS
   ========================= */
+  // bookings: lấy từ state.booking.bookings (đã là mảng items)
+  const bookings = useSelector((state) => state.booking.bookings) || [];
+  const bookingsLoading = useSelector((state) => state.booking.bookingLoading);
+
   const roomData = useMemo(() => {
-    if (!Array.isArray(transactions)) return [];
+    if (!Array.isArray(bookings)) return [];
+    return bookings.map((booking) => {
+      return {
+        id: booking._id,
+        name: booking.studio?.name || `Booking #${booking._id.slice(-4)}`,
+        image: booking.studio?.images?.[0] || null,
+        location: booking.studio?.location || "",
+        date: booking.createdAt ? new Date(booking.createdAt).toLocaleDateString("vi-VN") : "",
+        status: booking.status,
+        bookingRaw: booking,
+      };
+    });
+  }, [bookings]);
 
-    return transactions.map((tran) => {
-      const studio = tran.bookingId?.scheduleId?.studioId;
-
+  // transactions: lấy từ state.transaction.transactions
+  const transactionData = useMemo(() => {
+    const txs = Array.isArray(transactions)
+      ? transactions
+      : (transactions?.transactions || []); // fallback nếu là object
+    return txs.map((tran) => {
+      const booking = tran.bookingId || {};
+      const schedule = booking.scheduleId || {};
+      const studio = schedule.studioId || {};
       return {
         id: tran._id,
-        name: studio?.name || "Studio",
-        image: studio?.images?.[0] || null,
-        location: studio?.location || "",
+        name: studio.name || "Studio",
+        image: Array.isArray(studio.images) && studio.images.length > 0 ? studio.images[0] : null,
+        location: studio.location || "",
         price: tran.amount ? `${tran.amount.toLocaleString()}đ` : "",
-        date: tran.bookingId?.scheduleId?.startTime
-          ? new Date(tran.bookingId.scheduleId.startTime).toLocaleDateString(
-              "vi-VN"
-            )
-          : "",
-        time:
-          tran.bookingId?.scheduleId?.startTime &&
-          tran.bookingId?.scheduleId?.endTime
-            ? `${new Date(
-                tran.bookingId.scheduleId.startTime
-              ).toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })} - ${new Date(
-                tran.bookingId.scheduleId.endTime
-              ).toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}`
-            : "",
+        date: schedule.startTime ? new Date(schedule.startTime).toLocaleDateString("vi-VN") : "",
+        time: schedule.startTime && schedule.endTime ? `${new Date(schedule.startTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - ${new Date(schedule.endTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}` : "",
         status: tran.status,
+        paymentCode: tran.paymentCode,
+        payType: tran.payType,
+        transactionId: tran.transactionId,
+        bookingId: booking._id,
+        raw: tran,
       };
     });
   }, [transactions]);
@@ -125,6 +137,7 @@ export default function BookingHistoryScreen({ navigation }) {
         ? item.referenceImages.length
         : 0;
       return {
+        ...item, // truyền toàn bộ thông tin sang
         id: item._id,
         name: item.customerName,
         email: item.email,
@@ -164,6 +177,7 @@ export default function BookingHistoryScreen({ navigation }) {
       <View style={styles.segment}>
         {[
           { id: "rooms", label: "Phòng" },
+          { id: "transactions", label: "Giao dịch" },
           { id: "setdesigncustom", label: "Đơn yêu cầu" },
         ].map((item) => (
           <TouchableOpacity
@@ -188,7 +202,7 @@ export default function BookingHistoryScreen({ navigation }) {
 
       {/* CONTENT */}
       {tab === "rooms" ? (
-        transactionLoading ? (
+        bookingsLoading ? (
           <TransactionSkeleton />
         ) : (
           <FlatList
@@ -198,11 +212,66 @@ export default function BookingHistoryScreen({ navigation }) {
             contentContainerStyle={{ padding: SPACING.lg }}
             renderItem={({ item }) => (
               <TouchableOpacity
+                style={[
+                  styles.historyCard,
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#fff',
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  },
+                ]}
+                onPress={() =>
+                  navigation.navigate("BookingStudioDetail", { bookingId: item.id })
+                }
+                activeOpacity={0.93}
+                key={item.id}
+              >
+                <View style={{ flex: 1, marginLeft: SPACING.md }}>
+                  <Text style={[styles.itemTitle, { fontSize: 17, marginBottom: 2 }]}>{item.name}</Text>
+                  <Text style={styles.meta}>Mã đặt: <Text style={{ color: COLORS.textDark }}>{item.id}</Text></Text>
+                  <Text style={styles.meta}>Ngày đặt: <Text style={{ color: COLORS.textDark }}>{item.date}</Text></Text>
+                  <Text style={[
+                    styles.status,
+                    {
+                      color:
+                        item.status === "pending"
+                          ? COLORS.danger
+                          : item.status === "confirmed"
+                          ? COLORS.brandBlue
+                          : COLORS.textMuted,
+                      marginTop: 6,
+                    },
+                  ]}>
+                    Trạng thái: {item.status === "pending" ? "Chờ xác nhận" : item.status === "confirmed" ? "Đã xác nhận" : item.status}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )
+      ) : tab === "transactions" ? (
+        transactionLoading ? (
+          <TransactionSkeleton />
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={transactionData}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: SPACING.lg }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
                 style={styles.historyCard}
                 onPress={() =>
                   navigation.navigate("BookingDetail", { item })
                 }
                 activeOpacity={0.9}
+                key={item.id}
               >
                 {item.image ? (
                   <Image
@@ -214,7 +283,6 @@ export default function BookingHistoryScreen({ navigation }) {
                     <Text>No Image</Text>
                   </View>
                 )}
-
                 <View style={{ flex: 1, marginLeft: SPACING.md }}>
                   <Text style={styles.itemTitle}>{item.name}</Text>
                   <Text style={styles.meta}>{item.location}</Text>
@@ -248,9 +316,10 @@ export default function BookingHistoryScreen({ navigation }) {
                 },
               ]}
               onPress={() =>
-                navigation.navigate("ConvertedCustomSetDesign", { id: item.id })
+                navigation.navigate("ConvertedCustomSetDesign", { item })
               }
               activeOpacity={0.9}
+              key={item.id}
             >
               {/* IMAGE */}
               <View style={{ position: "relative", marginRight: SPACING.md }}>

@@ -388,11 +388,15 @@ export default function BookingSuccessScreen({ route, navigation }) {
                   .then(async (payload) => {
                     if (payload.success === true && payload.data?.paymentLink) {
                       try {
-                        await Linking.openURL(payload.data.paymentLink);
+                        navigation.navigate("WebViewScreen", {
+                          url: payload.data.paymentLink,
+                          title: "Thanh toán",
+                          paymentInfo: payload.data,
+                        });
                       } catch (err) {
                         setToast({
                           type: "error",
-                          message: "Không thể mở link thanh toán",
+                          message: "Không thể mở trang thanh toán trong app",
                         });
                       }
                     } else {

@@ -97,18 +97,20 @@ export default function SearchScreen({ navigation }) {
         onPress={() => {
           if (item.entityType === "studio") {
             navigation.navigate("Detail", {
-              studioId: item._id,
+              item,
             });
           }
 
           if (item.entityType === "setDesign") {
             navigation.navigate("SetDesignDetail", {
-              setDesignId: item._id,
+              item,
             });
           }
 
           if (item.entityType === "equipment") {
-            console.log("Equipment clicked:", item._id);
+            navigation.navigate("EquipmentDetail", {
+              item,
+            });
           }
         }}
       >
